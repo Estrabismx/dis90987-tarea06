@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Sonifier - Imagen a Sonido</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .mono-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar para contenedores */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 sm:p-8">
+
+    <header class="w-full max-w-4xl mb-8 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-700 pb-6">
+        <div>
+            <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
+                Pixel Sonifier
+            </h1>
+            <p class="text-slate-400 mt-2 text-sm sm:text-base">Convierte los datos hexadecimales de imágenes en ondas sonoras.</p>
+        </div>
+        <div class="flex gap-2">
+            <button id="btnPlay" class="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-lg shadow-lg shadow-cyan-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                ▶ Reproducir
+            </button>
+            <button id="btnPause" class="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                ⏸ Pausa
+            </button>
+            <button id="btnStop" class="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                ■ Detener
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        <!-- Panel de Controles -->
+        <section class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 flex flex-col gap-6">
+            
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">1. Cargar Imagen</label>
+                <div class="relative w-full h-12 rounded-lg border-2 border-dashed border-slate-500 hover:border-cyan-400 transition-colors flex items-center justify-center bg-slate-900 cursor-pointer overflow-hidden">
+                    <span class="text-slate-400 text-sm pointer-events-none" id="fileName">Selecciona o arrastra una imagen...</span>
+                    <input type="file" id="imageUpload" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                </div>
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-semibold text-slate-300">Resolución de Escaneo</label>
+                    <span class="text-xs text-cyan-400 mono-font" id="resValue">16x16</span>
+                </div>
+                <input type="range" id="resolution" min="4" max="64" value="16" step="1" class="w-full accent-cyan-400">
+                <p class="text-xs text-slate-500 mt-1">Imágenes muy grandes generan sonidos muy largos. Se reduce a una cuadrícula.</p>
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-semibold text-slate-300">Velocidad (Duración por Píxel)</label>
+                    <span class="text-xs text-cyan-400 mono-font" id="speedValue">100 ms</span>
+                </div>
+                <input type="range" id="speed" min="10" max="500" value="100" step="10" class="w-full accent-cyan-400">
+            </div>
+
+            <div class="mt-auto bg-slate-900 rounded-lg p-4 border border-slate-700">
+                <h3 class="text-xs uppercase tracking-wider text-slate-500 mb-3 font-bold">Monitor de Datos Actual</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <span class="block text-xs text-slate-400">Color Hex</span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <div id="currentColorBox" class="w-4 h-4 rounded-full bg-black border border-slate-600"></div>
+                            <span id="currentHex" class="mono-font text-sm text-cyan-300">#000000</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-slate-400">Frecuencia (Hz)</span>
+                        <span id="currentFreq" class="mono-font text-sm text-yellow-300 mt-1 block">0.0 Hz</span>
+                    </div>
+                </div>
+                <div id="statusMsg" class="mt-3 text-xs text-emerald-400 mono-font hidden">Listo para reproducir...</div>
+            </div>
+        </section>
+
+        <section class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 flex flex-col items-center justify-center overflow-hidden">
+            <h3 class="text-sm font-semibold text-slate-300 mb-4 w-full text-left">2. Visualización</h3>
+            
+            <div class="relative w-full aspect-square bg-slate-900 rounded-lg border border-slate-700 flex items-center justify-center overflow-hidden">
+                <span id="placeholderText" class="text-slate-600 text-sm">Sube una imagen para previsualizar</span>
+                
+                <!-- Canvas original oculto para procesar -->
+                <canvas id="sourceCanvas" class="hidden"></canvas>
+                
+                <!-- Canvas visible pixelado -->
+                <canvas id="displayCanvas" class="max-w-full max-h-full object-contain z-10" style="image-rendering: pixelated;"></canvas>
+                
+                <!-- Canvas para superponer el marcador de reproducción -->
+                <canvas id="overlayCanvas" class="absolute top-0 left-0 w-full h-full max-w-full max-h-full object-contain z-20 pointer-events-none"></canvas>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Elementos del DOM
+        const imageUpload = document.getElementById('imageUpload');
+        const fileNameDisplay = document.getElementById('fileName');
+        const sourceCanvas = document.getElementById('sourceCanvas');
+        const displayCanvas = document.getElementById('displayCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const sCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+        const dCtx = displayCanvas.getContext('2d');
+        const oCtx = overlayCanvas.getContext('2d');
+        
+        const resolutionSlider = document.getElementById('resolution');
+        const resValue = document.getElementById('resValue');
+        const speedSlider = document.getElementById('speed');
+        const speedValue = document.getElementById('speedValue');
+        
+        const btnPlay = document.getElementById('btnPlay');
+        const btnPause = document.getElementById('btnPause');
+        const btnStop = document.getElementById('btnStop');
+        const currentHex = document.getElementById('currentHex');
+        const currentFreq = document.getElementById('currentFreq');
+        const currentColorBox = document.getElementById('currentColorBox');
+        const placeholderText = document.getElementById('placeholderText');
+        const statusMsg = document.getElementById('statusMsg');
+
+        // Estado de la app
+        let imgObj = null;
+        let pixelDataArray = [];
+        let isPlaying = false;
+        let playIndex = 0;
+        let synth = null;
+        let currentResolution = parseInt(resolutionSlider.value);
+        let playInterval = null;
+
+        imageUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileNameDisplay.textContent = file.name;
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                imgObj = new Image();
+                imgObj.onload = function() {
+                    placeholderText.style.display = 'none';
+                    processImage();
+                }
+                imgObj.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+
+        // Configurar los Sliders
+        resolutionSlider.addEventListener('input', (e) => {
+            currentResolution = parseInt(e.target.value);
+            resValue.textContent = `${currentResolution}x${currentResolution}`;
+            if (imgObj) processImage();
+        });
+
+        speedSlider.addEventListener('input', (e) => {
+            speedValue.textContent = `${e.target.value} ms`;
+        });
+
+        // Utilidad: Convertir RGB a HEX
+        function rgbToHex(r, g, b) {
+            return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
+        }
+
+        function processImage() {
+            if (!imgObj) return;
+
+            // Detener si estaba reproduciendo
+            stopSonification();
+
+            const res = currentResolution;
+            
+            // Configurar canvas interno a la resolución baja
+            sourceCanvas.width = res;
+            sourceCanvas.height = res;
+            
+            // Dibujar imagen escalada
+            sCtx.drawImage(imgObj, 0, 0, res, res);
+            
+            // Configurar canvas visible a un tamaño grande para ver los píxeles claros
+            const displaySize = 400; // Tamaño fijo base para mostrar
+            displayCanvas.width = displaySize;
+            displayCanvas.height = displaySize;
+            overlayCanvas.width = displaySize;
+            overlayCanvas.height = displaySize;
+
+            dCtx.imageSmoothingEnabled = false; // Estilo pixel art
+            dCtx.drawImage(sourceCanvas, 0, 0, res, res, 0, 0, displaySize, displaySize);
+
+            // Extraer datos de píxeles
+            const imageData = sCtx.getImageData(0, 0, res, res);
+            const data = imageData.data;
+            
+            pixelDataArray = [];
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                // Ignoramos Alpha (data[i+3])
+
+                const hex = rgbToHex(r, g, b);
+                
+                // Mapeo: Brillo (0-255) a Frecuencia. 
+                // Formula: Frecuencia Base + (Brillo * Multiplicador)
+                const brightness = (r + g + b) / 3;
+                // Mapeamos de 100Hz (muy oscuro) a 1200Hz (muy brillante)
+                const frequency = 100 + (brightness * 4.31); 
+
+                const pixelIndex = i / 4;
+                const x = pixelIndex % res;
+                const y = Math.floor(pixelIndex / res);
+
+                pixelDataArray.push({
+                    x: x,
+                    y: y,
+                    r: r,
+                    g: g,
+                    b: b,
+                    hex: hex,
+                    frequency: frequency
+                });
+            }
+
+            statusMsg.classList.remove('hidden');
+            statusMsg.textContent = `Procesados ${pixelDataArray.length} píxeles.`;
+        }
+
+        async function playSonification() {
+            if (!imgObj || pixelDataArray.length === 0) {
+                showMessage("Por favor, carga una imagen primero.");
+                return;
+            }
+
+            // Inicializar Tone.js Audio Context si es necesario
+            await Tone.start();
+            
+            if (!synth) {
+                // Creamos un sintetizador simple
+                synth = new Tone.Synth({
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.5, release: 0.1 }
+                }).toDestination();
+                // Bajar un poco el volumen maestro para no saturar
+                Tone.getDestination().volume.value = -10; 
+            }
+
+            isPlaying = true;
+            btnPlay.disabled = true;
+            btnPause.disabled = false;
+            btnStop.disabled = false;
+            resolutionSlider.disabled = true; // Bloquear resolución durante reproducción
+            
+            statusMsg.textContent = playIndex > 0 ? "Reanudando..." : "Reproduciendo...";
+            statusMsg.classList.remove('text-emerald-400', 'text-yellow-400');
+            statusMsg.classList.add('text-cyan-400');
+
+            const speed = parseInt(speedSlider.value); // ms
+            const res = currentResolution;
+            const displaySize = displayCanvas.width;
+            const pixelSize = displaySize / res;
+
+            // Bucle principal de reproducción
+            function playNextPixel() {
+                if (!isPlaying) return; // Si se pausó, simplemente salimos del ciclo actual
+                
+                if (playIndex >= pixelDataArray.length) {
+                    stopSonification();
+                    return;
+                }
+
+                // Obtener datos actuales
+                const p = pixelDataArray[playIndex];
+                
+                // Actualizar Interfaz (Hex, Color, Frecuencia)
+                currentHex.textContent = p.hex;
+                currentFreq.textContent = p.frequency.toFixed(1) + ' Hz';
+                currentColorBox.style.backgroundColor = p.hex;
+
+                // Tocar la nota (frecuencia en Hz, duración)
+                synth.triggerAttackRelease(p.frequency, speed / 1000);
+
+                // Dibujar indicador visual (un borde sobre el píxel actual)
+                oCtx.clearRect(0, 0, displaySize, displaySize);
+                oCtx.strokeStyle = '#22d3ee'; // cyan-400
+                oCtx.lineWidth = 3;
+                oCtx.strokeRect(p.x * pixelSize, p.y * pixelSize, pixelSize, pixelSize);
+                // Relleno semi-transparente
+                oCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                oCtx.fillRect(p.x * pixelSize, p.y * pixelSize, pixelSize, pixelSize);
+
+                playIndex++;
+                
+                // Leer velocidad actual en caso de que el usuario la cambie en vivo
+                const currentSpeed = parseInt(speedSlider.value);
+                playInterval = setTimeout(playNextPixel, currentSpeed);
+            }
+
+            // Iniciar ciclo
+            playNextPixel();
+        }
+
+        function pauseSonification() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            
+            btnPlay.disabled = false;
+            btnPause.disabled = true;
+            // btnStop se mantiene habilitado por si quiere reiniciar
+            
+            if (synth) {
+                synth.triggerRelease();
+            }
+            
+            statusMsg.textContent = "Pausado. Presiona Reproducir para continuar.";
+            statusMsg.classList.remove('text-cyan-400', 'text-emerald-400');
+            statusMsg.classList.add('text-yellow-400');
+        }
+
+        function stopSonification() {
+            isPlaying = false;
+            clearTimeout(playInterval);
+            playIndex = 0;
+            
+            btnPlay.disabled = false;
+            btnPause.disabled = true;
+            btnStop.disabled = true;
+            resolutionSlider.disabled = false;
+            
+            if (synth) {
+                synth.triggerRelease();
+            }
+
+            oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            
+            currentHex.textContent = '#000000';
+            currentFreq.textContent = '0.0 Hz';
+            currentColorBox.style.backgroundColor = 'black';
+            
+            if(pixelDataArray.length > 0) {
+                statusMsg.textContent = "Detenido. Listo para reproducir.";
+                statusMsg.classList.remove('text-cyan-400', 'text-yellow-400');
+                statusMsg.classList.add('text-emerald-400');
+            }
+        }
+
+        // Mini sistema de mensajes flotantes integrado en el UI
+        function showMessage(msg) {
+            statusMsg.classList.remove('hidden');
+            statusMsg.classList.replace('text-emerald-400', 'text-red-400');
+            statusMsg.textContent = msg;
+            setTimeout(() => {
+                if(pixelDataArray.length > 0) {
+                    statusMsg.classList.replace('text-red-400', 'text-emerald-400');
+                    statusMsg.textContent = "Listo.";
+                } else {
+                    statusMsg.classList.add('hidden');
+                }
+            }, 3000);
+        }
+
+        // Event Listeners de Botones
+        btnPlay.addEventListener('click', playSonification);
+        btnPause.addEventListener('click', pauseSonification);
+        btnStop.addEventListener('click', stopSonification);
+
+    </script>
+</body>
+</html>
