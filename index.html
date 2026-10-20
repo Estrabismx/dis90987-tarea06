@@ -3,103 +3,630 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Imagen a Sonido - Escáner de Columnas</title>
+    <title>LID - Escáner Sónico de Imágenes</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for sound effects -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Archivo CSS externo -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-900 text-white font-sans min-h-screen p-4 sm:p-8 flex flex-col items-center">
+<body class="h-screen flex flex-col justify-between select-none relative overflow-hidden">
 
-    <h1 class="text-3xl font-bold mb-2 text-purple-400 text-center">Escáner Sónico de Imágenes</h1>
-    <p class="text-gray-400 mb-6 text-center max-w-xl text-sm">
-        Escanea la imagen de izquierda a derecha. Promedia los colores de toda la columna (eje Y) 
-        para generar un único tono basado en la escala logarítmica y la forma de onda elegida.
-    </p>
-    
-    <div class="bg-gray-800 p-6 rounded-2xl shadow-xl w-full max-w-4xl border border-gray-700">
+    <!-- Custom LID Hand Cursor -->
+    <div id="lidCursor" class="lid-cursor hidden md:block"></div>
+
+    <!-- Top Status Bar / Header -->
+    <header class="w-full px-6 py-4 flex justify-between items-center z-10">
+        <div class="flex items-center space-x-3">
+            <button onclick="playDropSound(); returnToLidHome()" class="bg-blue-500 hover:bg-blue-600 text-white font-black px-4 py-1.5 rounded-full text-sm shadow-md tracking-wider flex items-center space-x-1 cursor-pointer transition">
+                <span>LID</span>
+                <span class="text-xs bg-white text-blue-600 px-1.5 py-0.5 rounded-full font-bold">MENÚ</span>
+            </button>
+            <h1 id="appTitleHeader" class="text-gray-700 font-bold text-lg drop-shadow-sm">Menú Principal - Canal Escáner Sónico</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div id="clockDisplay" class="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full shadow border border-gray-200 text-gray-700 font-bold text-sm tracking-wide">
+                00:00
+            </div>
+            <!-- Top Right Gear Button: Opens Web Info Modal (Primera Imagen) -->
+            <button onclick="playDropSound(); openInfoModal()" class="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition cursor-pointer" title="Información de la Web">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area: LID Menu Channel Grid & Active App -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-2 flex items-center justify-center z-10">
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="col-span-1 md:col-span-2 lg:col-span-1">
-                <label class="block text-sm font-semibold mb-2 text-gray-300">1. Cargar Imagen:</label>
-                <input type="file" id="imageInput" accept="image/*" class="w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-500 transition-colors cursor-pointer">
+        <!-- View 1: LID Menu Channel Grid (Only Sonic Scanner Channel) -->
+        <div id="lidMenuView" class="w-full max-h-[72vh] overflow-y-auto p-4 flex flex-col items-center justify-center">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-extrabold text-gray-800">Menú Principal de LID</h2>
+                <p class="text-gray-500 text-sm">Selecciona el canal para abrir el Escáner Sónico de Imágenes.</p>
             </div>
             
-            <div>
-                <label class="block text-sm font-semibold mb-2 text-gray-300">2. Columnas (Pasos X): <span id="resValue" class="text-purple-400">32</span></label>
-                <input type="range" id="resolution" min="8" max="1024" value="32" step="4" class="w-full accent-purple-500 cursor-pointer">
-            </div>
-
-            <div>
-                <label class="block text-sm font-semibold mb-2 text-gray-300">3. Sabor (Onda):</label>
-                <select id="waveType" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500 transition-colors cursor-pointer">
-                    <option value="sine">Senoidal (Suave)</option>
-                    <option value="triangle" selected>Triangular (Equilibrado)</option>
-                    <option value="square">Cuadrada (Retro 8-bit)</option>
-                    <option value="sawtooth">Diente de Sierra (Agresivo)</option>
-                </select>
-            </div>
-            
-            <div>
-                <label class="block text-sm font-semibold mb-2 text-gray-300">4. Velocidad (ms): <span id="speedValue" class="text-purple-400">150</span></label>
-                <input type="range" id="speed" min="20" max="1000" value="150" step="10" class="w-full accent-purple-500 cursor-pointer">
-            </div>
-        </div>
-
-        <h2 class="text-lg font-bold mb-3 text-purple-300 border-b border-gray-700 pb-2">Controles de Sonido (Sintetizador)</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 bg-gray-900 p-4 rounded-xl border border-gray-700">
-            <div>
-                <label class="block text-sm font-semibold mb-2 text-gray-300">Ataque: <span id="attackValue" class="text-purple-400">0.05s</span></label>
-                <input type="range" id="attack" min="0.01" max="1" value="0.05" step="0.01" class="w-full accent-purple-500 cursor-pointer">
-            </div>
-            <div>
-                <label class="block text-sm font-semibold mb-2 text-gray-300">Release: <span id="releaseValue" class="text-purple-400">0.1s</span></label>
-                <input type="range" id="release" min="0.05" max="3" value="0.1" step="0.05" class="w-full accent-purple-500 cursor-pointer">
-            </div>
-            <div>
-                <label class="block text-sm font-semibold mb-2 text-gray-300">Filtro Pasa Bajos: <span id="filterValue" class="text-purple-400">5000Hz</span></label>
-                <input type="range" id="filter" min="200" max="10000" value="5000" step="100" class="w-full accent-purple-500 cursor-pointer">
-            </div>
-            <div>
-                <label class="block text-sm font-semibold mb-2 text-gray-300">Reverb (Eco): <span id="reverbValue" class="text-purple-400">0%</span></label>
-                <input type="range" id="reverb" min="0" max="1" value="0" step="0.05" class="w-full accent-purple-500 cursor-pointer">
-            </div>
-        </div>
-
-        <div class="flex flex-wrap gap-3 justify-center mb-6">
-            <button id="btnPlay" class="flex-1 sm:flex-none bg-green-600 hover:bg-green-500 px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                Reproducir
-            </button>
-            <button id="btnPause" class="flex-1 sm:flex-none bg-yellow-600 hover:bg-yellow-500 px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled>
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                Pausar
-            </button>
-            <button id="btnStop" class="flex-1 sm:flex-none bg-red-600 hover:bg-red-500 px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled>
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
-                Detener
-            </button>
-        </div>
-
-        <div class="bg-gray-900 p-4 rounded-xl text-center mb-6 border border-gray-700 min-h-[90px] flex flex-col justify-center items-center">
-            <p id="statusText" class="text-gray-400 font-medium">Sube una imagen para comenzar.</p>
-            
-            <div id="pixelInfo" class="hidden w-full max-w-md mt-3 grid grid-cols-2 gap-4">
-                <div class="bg-gray-800 p-2 rounded border border-gray-700">
-                    <div class="text-xs text-gray-400 uppercase tracking-wider">Promedio Hex</div>
-                    <div id="hexCode" class="font-mono font-bold text-lg text-white">-</div>
-                </div>
-                <div class="bg-gray-800 p-2 rounded border border-gray-700">
-                    <div class="text-xs text-gray-400 uppercase tracking-wider">Frecuencia</div>
-                    <div id="hzValue" class="font-mono font-bold text-lg text-purple-400">-</div>
+            <div class="w-full max-w-xs">
+                <!-- Sonic Image Scanner Channel Card -->
+                <div onclick="playDropSound(); launchScannerChannel()" class="lid-channel bg-white rounded-2xl p-5 flex flex-col items-center justify-between h-52 border-2 border-white shadow-lg cursor-pointer relative overflow-hidden">
+                    <div class="w-full flex justify-between items-center">
+                        <span class="text-[10px] font-bold tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">AUDIO & IMAGEN</span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
+                    </div>
+                    <div class="my-auto transform hover:scale-110 transition duration-300 text-blue-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                    </div>
+                    <div class="text-center w-full">
+                        <h3 class="font-bold text-gray-800 text-base truncate">Escáner Sónico</h3>
+                        <p class="text-gray-400 text-xs truncate">Imagen a Sonido por Columnas</p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div id="canvasContainer" class="flex justify-center bg-black rounded-xl p-2 overflow-hidden border border-gray-700 relative w-full h-auto min-h-[300px]">
-            <canvas id="canvas" class="max-w-full h-auto rounded"></canvas>
+        <!-- View 2: Active App (LID Aesthetic Styled - Clean & Focused on Image Upload) -->
+        <div id="scannerAppView" class="hidden w-full max-w-4xl max-h-[76vh] overflow-y-auto bg-white/95 backdrop-blur-md text-gray-800 p-6 rounded-3xl shadow-2xl border-4 border-blue-400 animate-in fade-in zoom-in duration-200">
+            
+            <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-500 p-2.5 rounded-2xl text-white font-bold text-lg shadow-sm">🎵</div>
+                    <div>
+                        <h2 class="text-xl font-bold text-blue-600">Escáner Sónico de Imágenes</h2>
+                        <p class="text-gray-500 text-xs">Sube tu imagen para escanear sus columnas de izquierda a derecha.</p>
+                    </div>
+                </div>
+                <button onclick="playDropSound(); returnToLidHome()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm border border-gray-300 transition cursor-pointer">
+                    Volver al Menú LID
+                </button>
+            </div>
+
+            <!-- Single prominent image upload section -->
+            <div class="mb-6 bg-blue-50/50 p-6 rounded-2xl border-2 border-dashed border-blue-300 text-center flex flex-col items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <label class="block text-base font-bold text-gray-800 mb-1">Cargar Imagen para Escaneo:</label>
+                <p class="text-gray-500 text-xs mb-4">Selecciona cualquier archivo de imagen (PNG, JPG, etc.)</p>
+                <input type="file" id="imageInput" accept="image/*" class="text-sm text-gray-600 file:mr-3 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-500 file:text-white hover:file:bg-blue-600 transition-colors cursor-pointer shadow-md">
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="flex flex-wrap gap-3 justify-center mb-6">
+                <button id="btnPlay" class="flex-1 sm:flex-none bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md cursor-pointer">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                    Reproducir
+                </button>
+                <button id="btnPause" class="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-white px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md cursor-pointer" disabled>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    Pausar
+                </button>
+                <button id="btnStop" class="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md cursor-pointer" disabled>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                    Detener
+                </button>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-xl text-center mb-6 border border-gray-200 min-h-[90px] flex flex-col justify-center items-center shadow-inner">
+                <p id="statusText" class="text-gray-500 font-medium">Sube una imagen para comenzar.</p>
+                
+                <div id="pixelInfo" class="hidden w-full max-w-md mt-3 grid grid-cols-2 gap-4">
+                    <div class="bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+                        <div class="text-xs text-gray-400 uppercase tracking-wider">Promedio Hex</div>
+                        <div id="hexCode" class="font-mono font-bold text-lg text-gray-800">-</div>
+                    </div>
+                    <div class="bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+                        <div class="text-xs text-gray-400 uppercase tracking-wider">Frecuencia</div>
+                        <div id="hzValue" class="font-mono font-bold text-lg text-blue-600">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="canvasContainer" class="flex justify-center bg-gray-900 rounded-xl p-2 overflow-hidden border border-gray-300 relative w-full h-auto min-h-[300px] shadow-inner">
+                <canvas id="canvas" class="max-w-full h-auto rounded"></canvas>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Bottom LID Menu Wave Bar -->
+    <footer class="relative w-full h-24 md:h-28 z-20 overflow-visible">
+        <div class="absolute inset-0 bg-gradient-to-t from-gray-300 via-gray-200 to-transparent border-t-2 border-blue-400/80 shadow-[0_-10px_25px_rgba(0,0,0,0.08)] flex items-center justify-between px-6 md:px-16">
+            
+            <!-- Bottom Left: LID Menu Home Button -->
+            <button onclick="playDropSound(); returnToLidHome()" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer">
+                <span class="text-blue-600 font-extrabold text-lg md:text-xl tracking-tighter group-hover:text-blue-700">LID</span>
+            </button>
+
+            <!-- Bottom Center: Date & Message Board Indicator (Opens Instagram Credits) -->
+            <div class="flex flex-col items-center cursor-pointer" onclick="playDropSound(); openMessageBoardModal()">
+                <div class="flex items-center space-x-2 bg-white/90 backdrop-blur-md px-6 py-2 rounded-full shadow-md border border-blue-200 hover:border-blue-400 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span id="dateDisplay" class="text-gray-700 font-bold text-sm">...</span>
+                </div>
+            </div>
+
+            <!-- Bottom Right Options Button: Opens Settings Modal (Segunda Imagen) -->
+            <button onclick="playDropSound(); openSettingsModal()" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600 group-hover:rotate-45 transition duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 11-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 11-4m0 4v2m0-6V4" />
+                </svg>
+            </button>
+
+        </div>
+    </footer>
+
+    <!-- Modal 1: Web Application Info (Opened from top-right gear) -->
+    <div id="infoModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[100] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl border-4 border-blue-400 max-w-lg w-full p-6 text-gray-800 relative animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="p-2 bg-blue-100 text-blue-600 rounded-xl font-bold">ℹ️</div>
+                    <h3 class="text-xl font-bold text-blue-600">Acerca de la Web</h3>
+                </div>
+                <button onclick="closeInfoModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer">✕</button>
+            </div>
+            <div class="bg-blue-50/70 p-4 rounded-2xl border border-blue-200 text-sm text-gray-700 space-y-2 mb-6">
+                <p>Esta aplicación web es un <strong>Escáner Sónico de Imágenes</strong> que procesa cualquier fotografía cargada barriendo sus columnas de izquierda a derecha. Cada columna calcula el promedio de sus colores RGB e interpreta el brillo para generar frecuencias musicales en tiempo real mediante un sintetizador web avanzado.</p>
+            </div>
+            <button onclick="closeInfoModal()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition cursor-pointer">Entendido</button>
         </div>
     </div>
 
-    <script src="main.js"></script>
+    <!-- Modal 2: Audio & Scanner Settings (Opened from bottom-right options) -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[100] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl border-4 border-blue-400 max-w-2xl w-full p-6 text-gray-800 relative max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="p-2 bg-blue-100 text-blue-600 rounded-xl font-bold">⚙️</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-blue-600">Ajustes de Sonido y Escáner</h3>
+                        <p class="text-gray-500 text-xs">Configura los parámetros del sintetizador y resolución.</p>
+                    </div>
+                </div>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer">✕</button>
+            </div>
+
+            <div class="space-y-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-700">Columnas (Pasos X): <span id="resValue" class="text-blue-600">32</span></label>
+                        <input type="range" id="resolution" min="8" max="1024" value="32" step="4" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-700">Velocidad (ms): <span id="speedValue" class="text-blue-600">150</span></label>
+                        <input type="range" id="speed" min="20" max="1000" value="150" step="10" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-sm font-semibold mb-2 text-gray-700">Sabor (Onda):</label>
+                        <select id="waveType" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-700 outline-none focus:border-blue-500 transition-colors cursor-pointer">
+                            <option value="sine">Senoidal (Suave)</option>
+                            <option value="triangle" selected>Triangular (Equilibrado)</option>
+                            <option value="square">Cuadrada (Retro 8-bit)</option>
+                            <option value="sawtooth">Diente de Sierra (Agresivo)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-4">
+                    <h4 class="font-bold text-gray-700 text-sm border-b pb-2">Controles del Sintetizador</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">Ataque: <span id="attackValue" class="text-blue-600">0.05s</span></label>
+                            <input type="range" id="attack" min="0.01" max="1" value="0.05" step="0.01" class="w-full accent-blue-500 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">Release: <span id="releaseValue" class="text-blue-600">0.1s</span></label>
+                            <input type="range" id="release" min="0.05" max="3" value="0.1" step="0.05" class="w-full accent-blue-500 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">Filtro Pasa Bajos: <span id="filterValue" class="text-blue-600">5000Hz</span></label>
+                            <input type="range" id="filter" min="200" max="10000" value="5000" step="100" class="w-full accent-blue-500 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">Reverb (Eco): <span id="reverbValue" class="text-blue-600">0%</span></label>
+                            <input type="range" id="reverb" min="0" max="1" value="0" step="0.05" class="w-full accent-blue-500 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeSettingsModal()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition cursor-pointer">Guardar y Cerrar</button>
+        </div>
+    </div>
+
+    <!-- Modal 3: Message Board with Instagram Links (Opened from bottom center date) -->
+    <div id="messageBoardModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[150] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl border-2 border-blue-400 max-w-sm w-full p-6 text-center text-gray-800">
+            <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
+            <h3 class="text-lg font-bold mb-2">Tablón de Mensajes</h3>
+            <p class="text-gray-600 text-sm mb-4">Créditos del Escáner Sónico LID:</p>
+            <div class="flex flex-col space-y-2 mb-6">
+                <a href="https://instagram.com/tarozzk" target="_blank" onclick="playDropSound()" class="text-blue-600 hover:text-blue-800 font-bold text-base underline transition">@tarozzk</a>
+                <a href="https://instagram.com/n.arkotikk" target="_blank" onclick="playDropSound()" class="text-blue-600 hover:text-blue-800 font-bold text-base underline transition">@n.arkotikk</a>
+            </div>
+            <button onclick="closeMessageBoardModal()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-md transition cursor-pointer">Aceptar</button>
+        </div>
+    </div>
+
+    <!-- JavaScript: Water Drop Sound, Real-Time Date & Exact Scanner Functionality -->
+    <script>
+        // --- LID Water Drop Sound Synthesis & Clock ---
+        let audioInitialized = false;
+        
+        const dropSynth = new Tone.Synth({
+            oscillator: { type: "sine" },
+            envelope: {
+                attack: 0.002,
+                decay: 0.15,
+                sustain: 0,
+                release: 0.1
+            }
+        }).toDestination();
+
+        function initLidAudio() {
+            if (!audioInitialized) {
+                Tone.start();
+                audioInitialized = true;
+            }
+        }
+
+        function playDropSound() {
+            initLidAudio();
+            try {
+                const now = Tone.now();
+                dropSynth.triggerAttackRelease("E6", "16n", now);
+                dropSynth.frequency.exponentialRampTo(value = "A5", duration = 0.12, time = now + 0.02);
+            } catch(e) {}
+        }
+
+        // Custom Cursor
+        const cursor = document.getElementById('lidCursor');
+        window.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
+
+        // Clock & Correct Dynamic Date
+        function updateClock() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('clockDisplay').innerText = `${hours}:${minutes}`;
+
+            const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            const dayName = days[now.getDay()];
+            document.getElementById('dateDisplay').innerText = `${dayName} ${now.getMonth() + 1}/${now.getDate()}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Modal Controllers
+        function openInfoModal() {
+            playDropSound();
+            document.getElementById('infoModal').classList.remove('hidden');
+        }
+        function closeInfoModal() {
+            playDropSound();
+            document.getElementById('infoModal').classList.add('hidden');
+        }
+
+        function openSettingsModal() {
+            playDropSound();
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+        function closeSettingsModal() {
+            playDropSound();
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function openMessageBoardModal() {
+            playDropSound();
+            document.getElementById('messageBoardModal').classList.remove('hidden');
+        }
+        function closeMessageBoardModal() {
+            playDropSound();
+            document.getElementById('messageBoardModal').classList.add('hidden');
+        }
+
+        function launchScannerChannel() {
+            document.getElementById('lidMenuView').classList.add('hidden');
+            document.getElementById('scannerAppView').classList.remove('hidden');
+            document.getElementById('appTitleHeader').innerText = 'Canal Escáner Sónico';
+        }
+
+        function returnToLidHome() {
+            if (typeof isPlaying !== 'undefined' && isPlaying) {
+                pauseScanning();
+            }
+            document.getElementById('scannerAppView').classList.add('hidden');
+            document.getElementById('lidMenuView').classList.remove('hidden');
+            document.getElementById('appTitleHeader').innerText = 'Menú Principal - Canal Escáner Sónico';
+            playDropSound();
+        }
+
+
+        // --- Exact Image-to-Sound Scanner Functionality (Preserved 100%) ---
+        const imageInput = document.getElementById('imageInput');
+        const resolutionRange = document.getElementById('resolution');
+        const resValue = document.getElementById('resValue');
+        const waveTypeSelect = document.getElementById('waveType');
+        const speedRange = document.getElementById('speed');
+        const speedValue = document.getElementById('speedValue');
+
+        const attackRange = document.getElementById('attack');
+        const attackValue = document.getElementById('attackValue');
+        const releaseRange = document.getElementById('release');
+        const releaseValue = document.getElementById('releaseValue');
+        const filterRange = document.getElementById('filter');
+        const filterValue = document.getElementById('filterValue');
+        const reverbRange = document.getElementById('reverb');
+        const reverbValue = document.getElementById('reverbValue');
+
+        const btnPlay = document.getElementById('btnPlay');
+        const btnPause = document.getElementById('btnPause');
+        const btnStop = document.getElementById('btnStop');
+        const statusText = document.getElementById('statusText');
+        const pixelInfo = document.getElementById('pixelInfo');
+        const hexCode = document.getElementById('hexCode');
+        const hzValue = document.getElementById('hzValue');
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let img = new Image();
+        let imageLoaded = false;
+        let isPlaying = false;
+        let isPaused = false;
+        let currentColumn = 0;
+        let totalColumns = 32;
+        let scanInterval = null;
+
+        // Audio Effects Chain
+        let synth, filter, reverb;
+
+        function initSynth() {
+            if (synth) {
+                synth.dispose();
+                filter.dispose();
+                reverb.dispose();
+            }
+
+            filter = new Tone.Filter({
+                frequency: parseFloat(filterRange.value),
+                type: "lowpass"
+            });
+
+            reverb = new Tone.Reverb({
+                decay: 2.0,
+                wet: parseFloat(reverbRange.value)
+            });
+
+            synth = new Tone.Synth({
+                oscillator: { type: waveTypeSelect.value },
+                envelope: {
+                    attack: parseFloat(attackRange.value),
+                    decay: 0.1,
+                    sustain: 0.5,
+                    release: parseFloat(releaseRange.value)
+                }
+            }).chain(filter, reverb, Tone.destination);
+        }
+
+        // Inputs Event Listeners
+        resolutionRange.addEventListener('input', (e) => {
+            totalColumns = parseInt(e.target.value);
+            resValue.innerText = totalColumns;
+            if (imageLoaded) drawCanvasAndColumns();
+        });
+
+        speedRange.addEventListener('input', (e) => {
+            speedValue.innerText = e.target.value;
+            if (isPlaying && !isPaused) {
+                restartInterval();
+            }
+        });
+
+        waveTypeSelect.addEventListener('change', () => {
+            if (synth) synth.oscillator.type = waveTypeSelect.value;
+        });
+
+        attackRange.addEventListener('input', (e) => {
+            attackValue.innerText = e.target.value + 's';
+            if (synth) synth.envelope.attack = parseFloat(e.target.value);
+        });
+
+        releaseRange.addEventListener('input', (e) => {
+            releaseValue.innerText = e.target.value + 's';
+            if (synth) synth.envelope.release = parseFloat(e.target.value);
+        });
+
+        filterRange.addEventListener('input', (e) => {
+            filterValue.innerText = e.target.value + 'Hz';
+            if (filter) filter.frequency.value = parseFloat(e.target.value);
+        });
+
+        reverbRange.addEventListener('input', (e) => {
+            reverbValue.innerText = Math.round(e.target.value * 100) + '%';
+            if (reverb) reverb.wet.value = parseFloat(e.target.value);
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    img.onload = function() {
+                        imageLoaded = true;
+                        currentColumn = 0;
+                        drawCanvasAndColumns();
+                        btnPlay.disabled = false;
+                        statusText.innerText = "Imagen cargada. Lista para escanear.";
+                        pixelInfo.classList.remove('hidden');
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function drawCanvasAndColumns(highlightCol = -1) {
+            if (!imageLoaded) return;
+
+            const maxWidth = 600;
+            let w = img.width;
+            let h = img.height;
+            if (w > maxWidth) {
+                h = (maxWidth / w) * h;
+                w = maxWidth;
+            }
+
+            canvas.width = w;
+            canvas.height = h;
+            ctx.drawImage(img, 0, 0, w, h);
+
+            if (highlightCol >= 0 && highlightCol < totalColumns) {
+                const colWidth = w / totalColumns;
+                const xPos = highlightCol * colWidth;
+
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
+                ctx.fillRect(xPos, 0, colWidth, h);
+
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(xPos, 0, colWidth, h);
+            }
+        }
+
+        function rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+
+        function processColumn(colIndex) {
+            if (!imageLoaded) return;
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const colWidth = w / totalColumns;
+            const startX = Math.floor(colIndex * colWidth);
+            const endX = Math.floor((colIndex + 1) * colWidth);
+
+            const imgData = ctx.getImageData(0, 0, w, h);
+            const data = imgData.data;
+
+            let totalR = 0, totalG = 0, totalB = 0, pixelCount = 0;
+
+            for (let x = startX; x < endX; x++) {
+                for (let y = 0; y < h; y++) {
+                    const idx = (y * w + x) * 4;
+                    totalR += data[idx];
+                    totalG += data[idx + 1];
+                    totalB += data[idx + 2];
+                    pixelCount++;
+                }
+            }
+
+            if (pixelCount === 0) return;
+
+            const avgR = Math.round(totalR / pixelCount);
+            const avgG = Math.round(totalG / pixelCount);
+            const avgB = Math.round(totalB / pixelCount);
+
+            const hex = rgbToHex(avgR, avgG, avgB);
+            hexCode.innerText = hex.toUpperCase();
+
+            const brightness = (0.299 * avgR + 0.587 * avgG + 0.114 * avgB) / 255;
+            const minFreq = 100;
+            const maxFreq = 4000;
+            const freq = minFreq * Math.pow(maxFreq / minFreq, 1 - brightness);
+
+            hzValue.innerText = Math.round(freq) + ' Hz';
+
+            if (synth) {
+                try {
+                    synth.triggerAttackRelease(freq, parseFloat(speedRange.value) / 1000 * 0.9);
+                } catch(e) {}
+            }
+
+            drawCanvasAndColumns(colIndex);
+            statusText.innerText = `Escaneando columna ${colIndex + 1} de ${totalColumns}`;
+        }
+
+        function startScanning() {
+            initLidAudio();
+            initSynth();
+            if (!imageLoaded) return;
+
+            isPlaying = true;
+            isPaused = false;
+            btnPlay.disabled = true;
+            btnPause.disabled = false;
+            btnStop.disabled = false;
+
+            restartInterval();
+        }
+
+        function restartInterval() {
+            if (scanInterval) clearInterval(scanInterval);
+
+            const intervalTime = parseInt(speedRange.value);
+            scanInterval = setInterval(() => {
+                if (currentColumn >= totalColumns) {
+                    stopScanning();
+                    return;
+                }
+                processColumn(currentColumn);
+                currentColumn++;
+            }, intervalTime);
+        }
+
+        function pauseScanning() {
+            if (scanInterval) clearInterval(scanInterval);
+            isPaused = true;
+            isPlaying = false;
+            btnPlay.disabled = false;
+            btnPause.disabled = true;
+            statusText.innerText = "Reproducción pausada.";
+        }
+
+        function stopScanning() {
+            if (scanInterval) clearInterval(scanInterval);
+            isPlaying = false;
+            isPaused = false;
+            currentColumn = 0;
+            btnPlay.disabled = false;
+            btnPause.disabled = true;
+            btnStop.disabled = true;
+            if (imageLoaded) {
+                drawCanvasAndColumns();
+                statusText.innerText = "Escaneo detenido. Listo.";
+            }
+        }
+
+        btnPlay.addEventListener('click', () => {
+            if (isPaused) {
+                isPlaying = true;
+                isPaused = false;
+                btnPlay.disabled = true;
+                btnPause.disabled = false;
+                btnStop.disabled = false;
+                restartInterval();
+            } else {
+                currentColumn = 0;
+                startScanning();
+            }
+        });
+
+        btnPause.addEventListener('click', pauseScanning);
+        btnStop.addEventListener('click', stopScanning);
+    </script>
 </body>
 </html>
