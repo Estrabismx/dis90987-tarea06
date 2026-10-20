@@ -31,11 +31,10 @@
             <div id="clockDisplay" class="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full shadow border border-gray-200 text-gray-700 font-bold text-sm tracking-wide">
                 00:00
             </div>
-            <!-- Top Right Gear Button: Opens Web Info Modal (Primera Imagen) -->
+            <!-- Top Right Gear Button: Opens Web Info Modal -->
             <button onclick="playDropSound(); openInfoModal()" class="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition cursor-pointer" title="Información de la Web">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </button>
         </div>
@@ -71,15 +70,15 @@
             </div>
         </div>
 
-        <!-- View 2: Active App (LID Aesthetic Styled - Clean & Focused on Image Upload) -->
+        <!-- View 2: Active App (LID Aesthetic Styled) -->
         <div id="scannerAppView" class="hidden w-full max-w-4xl max-h-[76vh] overflow-y-auto bg-white/95 backdrop-blur-md text-gray-800 p-6 rounded-3xl shadow-2xl border-4 border-blue-400 animate-in fade-in zoom-in duration-200">
             
-            <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
                 <div class="flex items-center space-x-3">
-                    <div class="bg-blue-500 p-2.5 rounded-2xl text-white font-bold text-lg shadow-sm">🎵</div>
+                    <div class="bg-blue-500 p-2 rounded-xl text-white font-bold">🎵</div>
                     <div>
                         <h2 class="text-xl font-bold text-blue-600">Escáner Sónico de Imágenes</h2>
-                        <p class="text-gray-500 text-xs">Sube tu imagen para escanear sus columnas de izquierda a derecha.</p>
+                        <p class="text-gray-500 text-xs">Escanea la imagen de izquierda a derecha. Promedia los colores de la columna (eje Y).</p>
                     </div>
                 </div>
                 <button onclick="playDropSound(); returnToLidHome()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-sm border border-gray-300 transition cursor-pointer">
@@ -87,17 +86,53 @@
                 </button>
             </div>
 
-            <!-- Single prominent image upload section -->
-            <div class="mb-6 bg-blue-50/50 p-6 rounded-2xl border-2 border-dashed border-blue-300 text-center flex flex-col items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <label class="block text-base font-bold text-gray-800 mb-1">Cargar Imagen para Escaneo:</label>
-                <p class="text-gray-500 text-xs mb-4">Selecciona cualquier archivo de imagen (PNG, JPG, etc.)</p>
-                <input type="file" id="imageInput" accept="image/*" class="text-sm text-gray-600 file:mr-3 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-500 file:text-white hover:file:bg-blue-600 transition-colors cursor-pointer shadow-md">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="col-span-1 md:col-span-2 lg:col-span-1">
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">1. Cargar Imagen:</label>
+                    <input type="file" id="imageInput" accept="image/*" class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 transition-colors cursor-pointer">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">2. Columnas (Pasos X): <span id="resValue" class="text-blue-600">32</span></label>
+                    <input type="range" id="resolution" min="8" max="1024" value="32" step="4" class="w-full accent-blue-500 cursor-pointer">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">3. Sabor (Onda):</label>
+                    <select id="waveType" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-700 outline-none focus:border-blue-500 transition-colors cursor-pointer">
+                        <option value="sine">Senoidal (Suave)</option>
+                        <option value="triangle" selected>Triangular (Equilibrado)</option>
+                        <option value="square">Cuadrada (Retro 8-bit)</option>
+                        <option value="sawtooth">Diente de Sierra (Agresivo)</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">4. Velocidad (ms): <span id="speedValue" class="text-blue-600">150</span></label>
+                    <input type="range" id="speed" min="20" max="1000" value="150" step="10" class="w-full accent-blue-500 cursor-pointer">
+                </div>
             </div>
 
-            <!-- Playback Controls -->
+            <h3 class="text-md font-bold mb-3 text-blue-600 border-b border-gray-200 pb-2">Controles de Sonido (Sintetizador)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">Ataque: <span id="attackValue" class="text-blue-600">0.05s</span></label>
+                    <input type="range" id="attack" min="0.01" max="1" value="0.05" step="0.01" class="w-full accent-blue-500 cursor-pointer">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">Release: <span id="releaseValue" class="text-blue-600">0.1s</span></label>
+                    <input type="range" id="release" min="0.05" max="3" value="0.1" step="0.05" class="w-full accent-blue-500 cursor-pointer">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">Filtro Pasa Bajos: <span id="filterValue" class="text-blue-600">5000Hz</span></label>
+                    <input type="range" id="filter" min="200" max="10000" value="5000" step="100" class="w-full accent-blue-500 cursor-pointer">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">Reverb (Eco): <span id="reverbValue" class="text-blue-600">0%</span></label>
+                    <input type="range" id="reverb" min="0" max="1" value="0" step="0.05" class="w-full accent-blue-500 cursor-pointer">
+                </div>
+            </div>
+
             <div class="flex flex-wrap gap-3 justify-center mb-6">
                 <button id="btnPlay" class="flex-1 sm:flex-none bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md cursor-pointer">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
@@ -154,17 +189,18 @@
                 </div>
             </div>
 
-            <!-- Bottom Right Options Button: Opens Settings Modal (Segunda Imagen) -->
-            <button onclick="playDropSound(); openSettingsModal()" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer">
+            <!-- Bottom Right Options Button: Opens Settings Modal (Gear Icon Restored) -->
+            <button onclick="playDropSound(); openSettingsModal()" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" title="Ajustes de Sonido y Escáner">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600 group-hover:rotate-45 transition duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 11-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 11-4m0 4v2m0-6V4" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
             </button>
 
         </div>
     </footer>
 
-    <!-- Modal 1: Web Application Info (Opened from top-right gear) -->
+    <!-- Modal 1: Web Application Info -->
     <div id="infoModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[100] flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl shadow-2xl border-4 border-blue-400 max-w-lg w-full p-6 text-gray-800 relative animate-in fade-in zoom-in duration-200">
             <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
@@ -181,7 +217,7 @@
         </div>
     </div>
 
-    <!-- Modal 2: Audio & Scanner Settings (Opened from bottom-right options) -->
+    <!-- Modal 2: Audio & Scanner Settings -->
     <div id="settingsModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[100] flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl shadow-2xl border-4 border-blue-400 max-w-2xl w-full p-6 text-gray-800 relative max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
             <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
@@ -243,7 +279,7 @@
         </div>
     </div>
 
-    <!-- Modal 3: Message Board with Instagram Links (Opened from bottom center date) -->
+    <!-- Modal 3: Message Board with Instagram Links -->
     <div id="messageBoardModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[150] flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl border-2 border-blue-400 max-w-sm w-full p-6 text-center text-gray-800">
             <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
@@ -257,9 +293,8 @@
         </div>
     </div>
 
-    <!-- JavaScript: Water Drop Sound, Real-Time Date & Exact Scanner Functionality -->
+    <!-- JavaScript: Sound, Date & Scanner Functionality -->
     <script>
-        // --- LID Water Drop Sound Synthesis & Clock ---
         let audioInitialized = false;
         
         const dropSynth = new Tone.Synth({
@@ -284,18 +319,16 @@
             try {
                 const now = Tone.now();
                 dropSynth.triggerAttackRelease("E6", "16n", now);
-                dropSynth.frequency.exponentialRampTo(value = "A5", duration = 0.12, time = now + 0.02);
+                dropSynth.frequency.exponentialRampTo("A5", 0.12, now + 0.02);
             } catch(e) {}
         }
 
-        // Custom Cursor
         const cursor = document.getElementById('lidCursor');
         window.addEventListener('mousemove', (e) => {
             cursor.style.left = e.clientX + 'px';
             cursor.style.top = e.clientY + 'px';
         });
 
-        // Clock & Correct Dynamic Date
         function updateClock() {
             const now = new Date();
             const hours = now.getHours().toString().padStart(2, '0');
@@ -304,12 +337,11 @@
 
             const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
             const dayName = days[now.getDay()];
-            document.getElementById('dateDisplay').innerText = `${dayName} ${now.getMonth() + 1}/${now.getDate()}`;
+            document.getElementById('dateDisplay').innerText = `${dayName} ${now.getDate()}/${now.getMonth() + 1}`;
         }
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Modal Controllers
         function openInfoModal() {
             playDropSound();
             document.getElementById('infoModal').classList.remove('hidden');
@@ -353,8 +385,6 @@
             playDropSound();
         }
 
-
-        // --- Exact Image-to-Sound Scanner Functionality (Preserved 100%) ---
         const imageInput = document.getElementById('imageInput');
         const resolutionRange = document.getElementById('resolution');
         const resValue = document.getElementById('resValue');
@@ -390,7 +420,6 @@
         let totalColumns = 32;
         let scanInterval = null;
 
-        // Audio Effects Chain
         let synth, filter, reverb;
 
         function initSynth() {
@@ -421,7 +450,6 @@
             }).chain(filter, reverb, Tone.destination);
         }
 
-        // Inputs Event Listeners
         resolutionRange.addEventListener('input', (e) => {
             totalColumns = parseInt(e.target.value);
             resValue.innerText = totalColumns;
