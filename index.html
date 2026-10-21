@@ -16,7 +16,16 @@
 <body class="h-screen flex flex-col justify-between select-none relative overflow-hidden">
 
     <!-- Custom LID Hand Cursor -->
-    <div id="lidCursor" class="lid-cursor hidden md:block"></div>
+    <div id="lidCursor" class="lid-cursor"></div>
+    <div id="dwellProgress" class="fixed bottom-28 left-1/2 z-[10000] hidden w-64 -translate-x-1/2 rounded-full bg-white/90 p-1 shadow-lg border border-emerald-200" aria-live="polite">
+        <div class="mb-1 flex justify-between px-1 text-[10px] font-bold text-emerald-700">
+            <span>Tiempo para seleccionar</span>
+            <span id="dwellProgressValue">0%</span>
+        </div>
+        <div class="h-2 overflow-hidden rounded-full bg-emerald-100">
+            <div id="dwellProgressBar" class="h-full w-0 rounded-full bg-emerald-500 transition-[width] duration-75"></div>
+        </div>
+    </div>
 
     <!-- Top Status Bar / Header -->
     <header class="w-full px-6 py-4 flex justify-between items-center z-10">
@@ -44,13 +53,13 @@
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-2 flex items-center justify-center z-10">
         
         <!-- View 1: LID Menu Channel Grid (Only Sonic Scanner Channel) -->
-        <div id="lidMenuView" class="w-full max-h-[72vh] overflow-y-auto p-4 flex flex-col items-center justify-center">
+        <div id="lidMenuView" class="mx-auto flex w-full max-w-xl max-h-[72vh] flex-col items-center justify-center overflow-y-auto p-4">
             <div class="text-center mb-6">
                 <h2 class="text-2xl font-extrabold text-gray-800">Traductor de bits</h2>
                 <p class="text-gray-500 text-sm">Carga un archivo de imagen para convertirlo en sonido.</p>
             </div>
             
-            <div class="w-full max-w-xs">
+            <div class="flex w-full justify-center">
                 <!-- Sonic Image Scanner Channel Card -->
                 <div id="scannerChannelButton" class="lid-channel bg-white rounded-2xl p-5 flex flex-col items-center justify-between h-52 border-2 border-white shadow-lg cursor-pointer relative overflow-hidden" role="button" tabindex="0">
                     <div class="w-full flex justify-between items-center">
@@ -97,6 +106,10 @@
                     <input type="file" id="imageInput" accept="image/*" class="sr-only">
                 </div>
             </div>
+            <label class="mb-4 flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-700">
+                <input id="freeModeToggle" type="checkbox" class="h-4 w-4 accent-blue-500">
+                <span>Modo libre: mover la barra con el cursor</span>
+            </label>
             <div id="canvasContainer" class="flex justify-center bg-gray-900 rounded-xl p-2 overflow-hidden border border-gray-300 relative w-full h-auto min-h-[300px] shadow-inner">
                 <div id="canvasPreviewWindow" class="flex min-h-[280px] w-full md:w-4/5 items-center justify-center overflow-hidden rounded-lg bg-black/40">
                     <canvas id="canvas" class="max-w-full h-auto rounded"></canvas>
@@ -106,6 +119,37 @@
                     <button id="stopButton" type="button" class="rounded-xl bg-red-500 px-6 py-3 font-bold text-white shadow-md transition hover:bg-red-600" disabled>Stop</button>
                 </div>
             </div>
+        </div>
+
+        <!-- View 3: Camera gesture control -->
+        <div id="cameraAppView" class="hidden mx-auto w-full max-w-2xl self-center bg-white/95 backdrop-blur-md text-gray-800 p-6 rounded-3xl shadow-2xl border-4 border-emerald-400 animate-in fade-in zoom-in duration-200">
+            <div class="relative flex items-center justify-between mb-5 border-b border-gray-200 pb-3">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-emerald-500 p-2 rounded-xl text-white font-bold">GESTOS</div>
+                    <div>
+                        <h2 class="text-xl font-bold text-emerald-600">Modo cámara</h2>
+                        <p class="text-gray-500 text-xs">La imagen de la cámara se procesa localmente y no se muestra.</p>
+                    </div>
+                </div>
+                <button id="closeCameraButton" type="button" class="rounded-full bg-gray-100 px-3 py-1 text-xl font-bold text-gray-500 transition hover:bg-red-100 hover:text-red-600" aria-label="Cerrar modo cámara">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="cameraSelect" class="mb-2 block text-sm font-semibold text-gray-700">Selecciona una cámara:</label>
+                    <select id="cameraSelect" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-700 outline-none focus:border-emerald-500">
+                        <option value="">Buscando cámaras...</option>
+                    </select>
+                </div>
+                <div id="cameraStatus" class="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-700" role="status">
+                    Pulsa el botón para solicitar acceso a tus cámaras.
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button id="stopCameraButton" type="button" class="rounded-xl bg-gray-200 px-5 py-2.5 font-bold text-gray-700 shadow-md transition hover:bg-gray-300" disabled>Detener cámara</button>
+                </div>
+                <p class="text-xs text-gray-500">Usa la mano abierta para mover el cursor. Cierra la mano para hacer click.</p>
+            </div>
+            <video id="cameraVideo" class="camera-processing-media" autoplay muted playsinline></video>
+            <canvas id="cameraProcessingCanvas" class="camera-processing-media"></canvas>
         </div>
 
     </main>
@@ -129,6 +173,11 @@
                 </div>
             </div>
 
+            <div class="flex items-center gap-3">
+                <button id="startCameraButton" type="button" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-emerald-100 to-white border-4 border-emerald-400 opacity-50 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" title="Iniciar OpenCV">
+                    <span class="text-emerald-600 font-extrabold text-xs tracking-tight group-hover:text-emerald-700">OpenCV</span>
+                </button>
+
             <!-- Bottom Right Options Button: Opens Settings Modal (Gear Icon Restored) -->
             <button id="settingsButton" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" title="Ajustes de Sonido y Escaner">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600 group-hover:rotate-45 transition duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -136,6 +185,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
             </button>
+            </div>
 
         </div>
     </footer>

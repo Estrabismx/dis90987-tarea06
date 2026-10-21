@@ -7,6 +7,20 @@ body {
     user-select: none;
 }
 
+body.camera-mode-active {
+    cursor: none;
+}
+
+.camera-processing-media {
+    position: fixed;
+    left: -10000px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
 /* Custom LID Hand Cursor */
 .lid-cursor {
     pointer-events: none;
@@ -18,7 +32,8 @@ body {
     background-size: contain;
     z-index: 9999;
     transform: translate(-15%, -10%);
-    transition: transform 0.05s ease-out;
+    opacity: 0;
+    transition: transform 0.05s ease-out, opacity 0.15s ease;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
 }
 
