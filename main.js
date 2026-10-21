@@ -714,7 +714,6 @@ scannerChannelButton.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') launchScannerChannel();
 });
 headerMenuButton.addEventListener('click', returnToLidHome);
-footerHomeButton.addEventListener('click', returnToLidHome);
 closeScannerButton.addEventListener('click', returnToLidHome);
 closeCameraButton.addEventListener('click', closeCameraWindow);
 startCameraButton.addEventListener('click', async () => {
