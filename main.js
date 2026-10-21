@@ -1,35 +1,4 @@
-// --- Water Drop Sound Synthesis ---
-let audioInitialized = false;
-const dropSynth = new Tone.Synth({
-    oscillator: { type: "sine" },
-    envelope: {
-        attack: 0.002,
-        decay: 0.15,
-        sustain: 0,
-        release: 0.1
-    }
-}).toDestination();
-
-function initLidAudio() {
-    if (!audioInitialized) {
-        Tone.start();
-        audioInitialized = true;
-    }
-}
-
-function playDropSound() {
-    initLidAudio();
-    try {
-        const now = Tone.now();
-        dropSynth.triggerAttackRelease("E6", "16n", now);
-        dropSynth.frequency.exponentialRampTo("A5", 0.12, now + 0.02);
-    } catch(e) {}
-}
-
-const scannerAppView = document.getElementById('scannerAppView');
 const appTitleHeader = document.getElementById('appTitleHeader');
-const cameraAppView = document.getElementById('cameraAppView');
-const headerMenuButton = document.getElementById('headerMenuButton');
 const playPauseButton = document.getElementById('playPauseButton');
 const stopButton = document.getElementById('stopButton');
 const freeModeToggle = document.getElementById('freeModeToggle');
@@ -56,24 +25,16 @@ const reverbValue = document.getElementById('reverbValue');
 const infoModal = document.getElementById('infoModal');
 const settingsModal = document.getElementById('settingsModal');
 const messageBoardModal = document.getElementById('messageBoardModal');
+const cameraModal = document.getElementById('cameraModal');
 const settingsWindow = document.getElementById('settingsWindow');
 const settingsHeader = document.getElementById('settingsHeader');
-const minimizeSettingsButton = document.getElementById('minimizeSettingsButton');
-const settingsMinimizedIcon = document.getElementById('settingsMinimizedIcon');
-const detectMidiButton = document.getElementById('detectMidiButton');
-const midiInputSelect = document.getElementById('midiInputSelect');
-const midiStatus = document.getElementById('midiStatus');
-const clearMidiMappingsButton = document.getElementById('clearMidiMappingsButton');
-const midiLearnButtons = document.querySelectorAll('[data-midi-target]');
-const lidCursor = document.getElementById('lidCursor');
-const startCameraButton = document.getElementById('startCameraButton');
-const closeCameraButton = document.getElementById('closeCameraButton');
+
+const toggleCameraActiveButton = document.getElementById('toggleCameraActiveButton');
 const stopCameraButton = document.getElementById('stopCameraButton');
 const cameraSelect = document.getElementById('cameraSelect');
 const cameraStatus = document.getElementById('cameraStatus');
 const cameraVideo = document.getElementById('cameraVideo');
-const mediaPipeFooterText = document.getElementById('mediaPipeFooterText');
-const mediaPipeFooterDot = document.getElementById('mediaPipeFooterDot');
+const cameraProcessingCanvas = document.getElementById('cameraProcessingCanvas');
 
 let mediaObjectUrl = null;
 let mediaSource = null;
@@ -84,6 +45,7 @@ let isPlaying = false;
 let synth = null;
 let filterNode = null;
 let reverbNode = null;
+
 let cameraStream = null;
 let cameraAnimationFrame = null;
 let cameraModeActive = false;
@@ -97,13 +59,30 @@ let lastHandSeenTime = 0;
 let lastClosedClickTime = 0;
 let nativeCursorPosition = { x: 0.5, y: 0.5 };
 let freeScanLastColumn = -1;
-let midiAccess = null;
-let selectedMidiInput = null;
-let midiMappings = new Map();
-let midiLearningTarget = null;
+const lidCursor = document.getElementById('lidCursor');
+
 const handInferenceInterval = 50;
 const handLostTimeout = 220;
 const clickDebounce = 350;
+
+// Water drop sound effect using Tone.js
+function playWaterDropSound() {
+    if (typeof Tone === 'undefined') return;
+    try {
+        const dropSynth = new Tone.Synth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.005, decay: 0.15, sustain: 0, release: 0.1 }
+        }).toDestination();
+        dropSynth.triggerAttackRelease('C6', '8n');
+    } catch (e) {}
+}
+
+// Add water drop sound to all interactive elements
+document.addEventListener('click', (e) => {
+    if (e.target.closest('button, a, input, select, [role="button"]')) {
+        playWaterDropSound();
+    }
+});
 
 function loadMediaPipeHands() {
     if (handProcessor) return Promise.resolve(handProcessor);
@@ -146,26 +125,8 @@ window.addEventListener('pointermove', (event) => {
     lidCursor.style.top = `${event.clientY}px`;
 });
 
-document.addEventListener('pointerleave', () => {
-    lidCursor.style.opacity = '0';
-});
-
-document.addEventListener('pointerenter', () => {
-    if (!cameraModeActive) lidCursor.style.opacity = '1';
-});
-
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-        event.preventDefault();
-        if (!cameraAppView.classList.contains('hidden')) {
-            cameraAppView.classList.add('hidden');
-        }
-    }
-});
-
 function ensureSynth() {
     if (typeof Tone === 'undefined') return null;
-
     if (!synth) {
         filterNode = new Tone.Filter(Number(filterRange.value), 'lowpass');
         reverbNode = new Tone.Reverb({ decay: 2, wet: Number(reverbRange.value) });
@@ -180,7 +141,6 @@ function ensureSynth() {
         }).chain(filterNode, reverbNode, Tone.Destination);
         Tone.Destination.volume.value = -8;
     }
-
     return synth;
 }
 
@@ -191,39 +151,56 @@ function startAudio() {
 
 function setCameraStatus(message, isError = false) {
     cameraStatus.innerText = message;
-    cameraStatus.className = `rounded-xl border p-3 text-sm ${isError
+    cameraStatus.className = `rounded-xl border p-3 text-xs ${isError
         ? 'border-red-100 bg-red-50 text-red-700'
         : 'border-emerald-100 bg-emerald-50 text-emerald-700'}`;
 }
 
 async function refreshCameraList() {
-    if (!navigator.mediaDevices?.enumerateDevices) {
-        setCameraStatus('Este navegador no permite acceder a las cámaras.', true);
-        return;
-    }
-
-    let devices;
+    if (!navigator.mediaDevices?.enumerateDevices) return;
     try {
-        devices = (await navigator.mediaDevices.enumerateDevices())
-            .filter((device) => device.kind === 'videoinput');
-    } catch (error) {
-        setCameraStatus(`No se pudieron listar las cámaras: ${error.message}`, true);
+        const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+        cameraSelect.replaceChildren();
+        devices.forEach((device, index) => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.textContent = device.label || `Cámara ${index + 1}`;
+            cameraSelect.appendChild(option);
+        });
+        if (!devices.length) cameraSelect.add(new Option('No se encontraron cámaras', ''));
+    } catch (e) {}
+}
+
+async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraStatus('Tu navegador no permite acceder a la webcam.', true);
         return;
     }
-    const selectedId = cameraSelect.value;
-    cameraSelect.replaceChildren();
-    devices.forEach((device, index) => {
-        const option = document.createElement('option');
-        option.value = device.deviceId;
-        option.textContent = device.label || `Cámara ${index + 1}`;
-        cameraSelect.appendChild(option);
-    });
-    if (selectedId && devices.some((device) => device.deviceId === selectedId)) {
-        cameraSelect.value = selectedId;
-    }
-    if (!devices.length) {
-        cameraSelect.add(new Option('No se encontraron cámaras', ''));
-        setCameraStatus('Conecta una webcam y vuelve a intentarlo.', true);
+    try {
+        setCameraStatus('Cargando MediaPipe y solicitando acceso...');
+        const handPromise = loadMediaPipeHands();
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: cameraSelect.value ? { deviceId: { exact: cameraSelect.value } } : true,
+            audio: false
+        });
+        cameraVideo.srcObject = cameraStream;
+        await new Promise((resolve) => {
+            if (cameraVideo.readyState >= HTMLMediaElement.HAVE_METADATA) { resolve(); return; }
+            cameraVideo.addEventListener('loadedmetadata', resolve, { once: true });
+        });
+        await cameraVideo.play();
+        cameraModeActive = true;
+        document.body.classList.add('camera-mode-active');
+        toggleCameraActiveButton.innerText = 'Cámara Activa';
+        toggleCameraActiveButton.classList.replace('bg-emerald-500', 'bg-blue-600');
+        stopCameraButton.disabled = false;
+        refreshCameraList();
+        await handPromise;
+        setCameraStatus('Seguimiento activo. Usa la mano abierta para mover y ciérrala para hacer clic.');
+        processCameraFrame();
+    } catch (error) {
+        stopCamera();
+        setCameraStatus(`No se pudo iniciar la cámara: ${error.message}`, true);
     }
 }
 
@@ -235,72 +212,11 @@ function stopCamera() {
     if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
     cameraStream = null;
     cameraVideo.srcObject = null;
+    toggleCameraActiveButton.innerText = 'Iniciar Cámara';
+    toggleCameraActiveButton.classList.replace('bg-blue-600', 'bg-emerald-500');
     stopCameraButton.disabled = true;
-    smoothedGesturePosition = null;
-    handWasOpen = false;
-    handInferenceBusy = false;
-    lastHandSeenTime = 0;
     lidCursor.style.opacity = '1';
-    mediaPipeFooterDot.className = 'w-2.5 h-2.5 rounded-full bg-gray-300';
-    mediaPipeFooterText.innerText = 'MediaPipe';
-    setCameraStatus('Cámara detenida. Pulsa el botón para iniciarla de nuevo.');
-}
-
-async function startCamera() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraStatus('Tu navegador no permite acceder a la webcam.', true);
-        return;
-    }
-
-    if (cameraModeActive) return;
-
-    try {
-        setCameraStatus('Cargando MediaPipe y solicitando acceso a la cámara...');
-        const handPromise = loadMediaPipeHands();
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: cameraSelect.value ? { deviceId: { exact: cameraSelect.value } } : true,
-            audio: false
-        });
-        cameraVideo.srcObject = cameraStream;
-        await new Promise((resolve) => {
-            if (cameraVideo.readyState >= HTMLMediaElement.HAVE_METADATA) {
-                resolve();
-                return;
-            }
-            cameraVideo.addEventListener('loadedmetadata', resolve, { once: true });
-        });
-        await cameraVideo.play();
-        cameraModeActive = true;
-        document.body.classList.add('camera-mode-active');
-        stopCameraButton.disabled = false;
-        refreshCameraList();
-        await handPromise;
-        setCameraStatus('Cámara activa. Usa la mano abierta para mover el cursor y ciérrala para hacer clic en cualquier parte.');
-        mediaPipeFooterDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
-        mediaPipeFooterText.innerText = 'Activo';
-        processCameraFrame();
-    } catch (error) {
-        if (cameraStream) {
-            cameraStream.getTracks().forEach((track) => track.stop());
-            cameraStream = null;
-            cameraVideo.srcObject = null;
-        }
-        setCameraStatus(`No se pudo iniciar la cámara: ${error.message}`, true);
-        mediaPipeFooterDot.className = 'w-2.5 h-2.5 rounded-full bg-red-400';
-        mediaPipeFooterText.innerText = 'Error';
-    }
-}
-
-async function toggleCameraModal() {
-    if (cameraAppView.classList.contains('hidden')) {
-        cameraAppView.classList.remove('hidden');
-        await refreshCameraList();
-        if (!cameraModeActive) {
-            await startCamera();
-        }
-    } else {
-        cameraAppView.classList.add('hidden');
-    }
+    setCameraStatus('Cámara detenida.');
 }
 
 function updateGestureCursor(x, y) {
@@ -323,8 +239,7 @@ function getInteractiveTarget(x, y) {
         Math.max(0, Math.min(window.innerWidth - 1, x * window.innerWidth)),
         Math.max(0, Math.min(window.innerHeight - 1, y * window.innerHeight))
     );
-    const target = element?.closest('button, [role="button"], a, select, input, label');
-    return target && !target.disabled ? target : null;
+    return element?.closest('button, [role="button"], a, select, input, label') || null;
 }
 
 function clickWithClosedHand(x, y, isClosed) {
@@ -332,9 +247,7 @@ function clickWithClosedHand(x, y, isClosed) {
         handWasOpen = true;
         return;
     }
-
     if (!handWasOpen) return;
-
     handWasOpen = false;
     const now = performance.now();
     if (now - lastClosedClickTime < clickDebounce) return;
@@ -349,61 +262,41 @@ function landmarkDistance(first, second) {
 
 function isClosedHand(landmarks) {
     const wrist = landmarks[0];
-    const fingerPairs = [
-        [8, 6],
-        [12, 10],
-        [16, 14],
-        [20, 18]
-    ];
-    const curledFingers = fingerPairs.filter(([tipIndex, pipIndex]) => {
-        const tipDistance = landmarkDistance(landmarks[tipIndex], wrist);
-        const pipDistance = landmarkDistance(landmarks[pipIndex], wrist);
-        return tipDistance < pipDistance * 1.08;
+    const fingerPairs = [[8, 6], [12, 10], [16, 14], [20, 18]];
+    const curledFingers = fingerPairs.filter(([tip, pip]) => {
+        return landmarkDistance(landmarks[tip], wrist) < landmarkDistance(landmarks[pip], wrist) * 1.08;
     }).length;
     return curledFingers >= 3;
 }
 
 function mapHandToScreen(landmarks) {
     const palmIndices = [0, 5, 9, 13, 17];
-    const palm = palmIndices.reduce((center, index) => ({
-        x: center.x + landmarks[index].x / palmIndices.length,
-        y: center.y + landmarks[index].y / palmIndices.length
+    const palm = palmIndices.reduce((acc, idx) => ({
+        x: acc.x + landmarks[idx].x / palmIndices.length,
+        y: acc.y + landmarks[idx].y / palmIndices.length
     }), { x: 0, y: 0 });
-
-    return {
-        x: 1 - palm.x,
-        y: palm.y,
-        isClosed: isClosedHand(landmarks)
-    };
+    return { x: 1 - palm.x, y: palm.y, isClosed: isClosedHand(landmarks) };
 }
 
 function handleHandResults(results) {
     if (!cameraModeActive) return;
     const landmarks = results.multiHandLandmarks?.[0];
     if (!landmarks || landmarks.length !== 21) return;
-
     lastHandSeenTime = performance.now();
     const position = mapHandToScreen(landmarks);
     updateGestureCursor(position.x, position.y);
-    clickWithClosedHand(
-        smoothedGesturePosition.x,
-        smoothedGesturePosition.y,
-        position.isClosed
-    );
+    clickWithClosedHand(smoothedGesturePosition.x, smoothedGesturePosition.y, position.isClosed);
 }
 
 async function processHandFrame(now) {
     if (!cameraModeActive || !handProcessor || handInferenceBusy ||
         now - lastInferenceTime < handInferenceInterval ||
         cameraVideo.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
-
     lastInferenceTime = now;
     handInferenceBusy = true;
     try {
         await handProcessor.send({ image: cameraVideo });
-    } catch (error) {
-        setCameraStatus(`MediaPipe no pudo procesar la cámara: ${error.message}`, true);
-    } finally {
+    } catch (e) {} finally {
         handInferenceBusy = false;
     }
 }
@@ -418,66 +311,49 @@ function processCameraFrame() {
     cameraAnimationFrame = requestAnimationFrame(processCameraFrame);
 }
 
-function openModal(modal) {
-    modal.classList.remove('hidden');
-}
-
-function closeModal(modal) {
-    modal.classList.add('hidden');
-}
+function openModal(modal) { modal.classList.remove('hidden'); }
+function closeModal(modal) { modal.classList.add('hidden'); }
 
 function updateUploadLabel(file) {
     mediaUploadZone.querySelector('span:nth-child(2)').innerText = file.name;
-    mediaUploadZone.querySelector('span:nth-child(3)').innerText = 'Imagen cargada. Listo para iniciar.';
+    mediaUploadZone.querySelector('span:nth-child(3)').innerText = 'Imagen cargada con éxito.';
 }
 
-function getTotalColumns() {
-    return Number(resolutionRange.value);
-}
-
-function getMediaDimensions() {
-    return {
-        width: mediaSource.naturalWidth,
-        height: mediaSource.naturalHeight
-    };
-}
+function getTotalColumns() { return Number(resolutionRange.value); }
 
 function drawMedia(highlightColumn = -1) {
     if (!mediaLoaded) return;
-
-    const { width: sourceWidth, height: sourceHeight } = getMediaDimensions();
+    const width = mediaSource.naturalWidth;
+    const height = mediaSource.naturalHeight;
     const maxWidth = 600;
-    const scale = Math.min(1, maxWidth / sourceWidth);
-    const width = Math.round(sourceWidth * scale);
-    const height = Math.round(sourceHeight * scale);
+    const scale = Math.min(1, maxWidth / width);
+    const w = Math.round(width * scale);
+    const h = Math.round(height * scale);
     const columns = getTotalColumns();
 
-    canvas.width = width;
-    canvas.height = height;
-    ctx.drawImage(mediaSource, 0, 0, width, height);
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(mediaSource, 0, 0, w, h);
 
     if (highlightColumn < 0) return;
-
-    const columnWidth = width / columns;
+    const columnWidth = w / columns;
     const x = highlightColumn * columnWidth;
     ctx.fillStyle = 'rgba(59, 130, 246, 0.35)';
-    ctx.fillRect(x, 0, columnWidth, height);
+    ctx.fillRect(x, 0, columnWidth, h);
     ctx.strokeStyle = '#2563eb';
     ctx.lineWidth = 2;
-    ctx.strokeRect(x, 0, columnWidth, height);
+    ctx.strokeRect(x, 0, columnWidth, h);
 }
 
 function getActiveCursorPosition() {
-    return cameraModeActive && smoothedGesturePosition
-        ? smoothedGesturePosition
-        : nativeCursorPosition;
+    return cameraModeActive && smoothedGesturePosition ? smoothedGesturePosition : nativeCursorPosition;
 }
 
 function getCursorColumn() {
     if (!canvas.width) return 0;
     const bounds = canvas.getBoundingClientRect();
-    const position = getActiveCursorPosition();
-    const relativeX = (position.x * window.innerWidth - bounds.left) / Math.max(1, bounds.width);
+    const pos = getActiveCursorPosition();
+    const relativeX = (pos.x * window.innerWidth - bounds.left) / Math.max(1, bounds.width);
     return Math.max(0, Math.min(getTotalColumns() - 1, Math.floor(relativeX * getTotalColumns())));
 }
 
@@ -487,37 +363,25 @@ function getColumnFrequency(column) {
     const startX = Math.floor(column * columnWidth);
     const endX = Math.max(startX + 1, Math.floor((column + 1) * columnWidth));
     const pixels = ctx.getImageData(startX, 0, endX - startX, canvas.height).data;
-    let red = 0;
-    let green = 0;
-    let blue = 0;
-
-    for (let index = 0; index < pixels.length; index += 4) {
-        red += pixels[index];
-        green += pixels[index + 1];
-        blue += pixels[index + 2];
+    let r = 0, g = 0, b = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+        r += pixels[i]; g += pixels[i+1]; b += pixels[i+2];
     }
-
-    const pixelCount = pixels.length / 4;
-    const brightness = (red + green + blue) / (pixelCount * 3 * 255);
-    const frequency = 100 * Math.pow(4000 / 100, 1 - brightness);
-    return frequency;
+    const count = pixels.length / 4;
+    const brightness = (r + g + b) / (count * 3 * 255);
+    return 100 * Math.pow(4000 / 100, 1 - brightness);
 }
 
 function scanNextColumn() {
     if (!isPlaying || !mediaLoaded) return;
-
     if (currentColumn >= getTotalColumns()) {
         stopScanning();
         return;
     }
-
     drawMedia();
-    const frequency = getColumnFrequency(currentColumn);
-    const activeSynth = startAudio();
-    if (activeSynth) {
-        activeSynth.triggerAttackRelease(frequency, Number(speedRange.value) / 1000 * 0.9);
-    }
-
+    const freq = getColumnFrequency(currentColumn);
+    const s = startAudio();
+    if (s) s.triggerAttackRelease(freq, Number(speedRange.value) / 1000 * 0.9);
     drawMedia(currentColumn);
     currentColumn += 1;
     scanTimer = setTimeout(scanNextColumn, Number(speedRange.value));
@@ -525,24 +389,20 @@ function scanNextColumn() {
 
 function scanFreeColumn() {
     if (!isPlaying || !mediaLoaded) return;
-
-    const column = getCursorColumn();
-    if (column !== freeScanLastColumn) {
+    const col = getCursorColumn();
+    if (col !== freeScanLastColumn) {
         drawMedia();
-        const frequency = getColumnFrequency(column);
-        const activeSynth = startAudio();
-        if (activeSynth) {
-            activeSynth.triggerAttackRelease(frequency, 0.08);
-        }
-        drawMedia(column);
-        freeScanLastColumn = column;
+        const freq = getColumnFrequency(col);
+        const s = startAudio();
+        if (s) s.triggerAttackRelease(freq, 0.08);
+        drawMedia(col);
+        freeScanLastColumn = col;
     }
     scanTimer = setTimeout(scanFreeColumn, 40);
 }
 
 function startScanning() {
     if (!mediaLoaded || isPlaying) return;
-
     startAudio();
     isPlaying = true;
     playPauseButton.innerText = 'Pause';
@@ -570,118 +430,20 @@ function stopScanning() {
 function handleMediaSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
-
     if (mediaObjectUrl) URL.revokeObjectURL(mediaObjectUrl);
     mediaObjectUrl = URL.createObjectURL(file);
     updateUploadLabel(file);
     stopScanning();
     mediaLoaded = false;
-
-    const image = new Image();
-    image.onload = () => {
-        mediaSource = image;
+    const img = new Image();
+    img.onload = () => {
+        mediaSource = img;
         mediaLoaded = true;
         drawMedia();
         playPauseButton.disabled = false;
         stopButton.disabled = false;
     };
-    image.src = mediaObjectUrl;
-}
-
-function setMidiStatus(message, type = 'default') {
-    midiStatus.innerText = message;
-    midiStatus.className = `text-xs ${
-        type === 'error' ? 'text-red-600' : type === 'success' ? 'text-emerald-600' : 'text-gray-500'
-    }`;
-}
-
-function refreshMidiInputs() {
-    if (!midiAccess) return;
-
-    const inputs = Array.from(midiAccess.inputs.values());
-    midiInputSelect.replaceChildren();
-
-    if (inputs.length === 0) {
-        setMidiInputHandler(null);
-        midiInputSelect.disabled = true;
-        midiInputSelect.add(new Option('No se detectaron entradas MIDI', ''));
-        setMidiStatus('No hay dispositivos MIDI de entrada conectados.');
-        selectedMidiInput = null;
-        return;
-    }
-
-    inputs.forEach((input) => {
-        midiInputSelect.add(new Option(input.name || 'Dispositivo MIDI sin nombre', input.id));
-    });
-    midiInputSelect.disabled = false;
-    setMidiInputHandler(inputs[0]);
-    midiInputSelect.value = selectedMidiInput.id;
-    setMidiStatus(`${inputs.length} dispositivo${inputs.length === 1 ? '' : 's'} MIDI detectado${inputs.length === 1 ? '' : 's'}.`, 'success');
-}
-
-function setMidiInputHandler(input) {
-    if (selectedMidiInput && selectedMidiInput !== input) {
-        selectedMidiInput.onmidimessage = null;
-    }
-    selectedMidiInput = input;
-    if (selectedMidiInput) selectedMidiInput.onmidimessage = handleMidiMessage;
-}
-
-function handleMidiMessage(event) {
-    const [status, controller, value] = event.data;
-    const messageType = status & 0xf0;
-    if (messageType !== 0xb0) return;
-
-    const targetId = midiLearningTarget || Array.from(midiMappings.entries())
-        .find(([, mapping]) => mapping.channel === (status & 0x0f) && mapping.controller === controller)?.[0];
-
-    if (!targetId) return;
-
-    if (midiLearningTarget) {
-        midiMappings.set(targetId, { channel: status & 0x0f, controller });
-        midiLearningTarget = null;
-        midiLearnButtons.forEach((button) => button.classList.remove('is-learning'));
-        updateMidiButtonLabels();
-        setMidiStatus(`Slider vinculado al CC ${controller + 1}.`, 'success');
-    }
-
-    const slider = document.getElementById(targetId);
-    if (!slider) return;
-    const ratio = value / 127;
-    slider.value = String(Number(slider.min) + ratio * (Number(slider.max) - Number(slider.min)));
-    slider.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function updateMidiButtonLabels() {
-    midiLearnButtons.forEach((button) => {
-        const mapping = midiMappings.get(button.dataset.midiTarget);
-        button.innerText = mapping ? `CC ${mapping.controller + 1}` : 'Asignar MIDI';
-    });
-}
-
-async function detectMidiDevices() {
-    if (!navigator.requestMIDIAccess) {
-        setMidiStatus('Este navegador no admite Web MIDI. Prueba con Chrome o Edge.', 'error');
-        return;
-    }
-
-    detectMidiButton.disabled = true;
-    setMidiStatus('Buscando dispositivos MIDI...');
-
-    try {
-        midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-        midiAccess.onstatechange = refreshMidiInputs;
-        refreshMidiInputs();
-    } catch (error) {
-        setMidiStatus(
-            error.name === 'SecurityError' || error.name === 'NotAllowedError'
-                ? 'El acceso MIDI fue bloqueado. Concede el permiso del navegador y vuelve a intentarlo.'
-                : 'No se pudo acceder a los dispositivos MIDI.',
-            'error'
-        );
-    } finally {
-        detectMidiButton.disabled = false;
-    }
+    img.src = mediaObjectUrl;
 }
 
 function updateSettings() {
@@ -697,26 +459,12 @@ function updateSettings() {
         synth.envelope.attack = Number(attackRange.value);
         synth.envelope.release = Number(releaseRange.value);
     }
-
     if (filterNode) filterNode.frequency.value = Number(filterRange.value);
     if (reverbNode) reverbNode.wet.value = Number(reverbRange.value);
     if (mediaLoaded && !isPlaying) drawMedia();
 }
 
-headerMenuButton.addEventListener('click', () => {
-    stopScanning();
-    scannerAppView.scrollIntoView({ behavior: 'smooth' });
-});
-
-startCameraButton.addEventListener('click', toggleCameraModal);
-closeCameraButton.addEventListener('click', () => {
-    cameraAppView.classList.add('hidden');
-});
-
-stopCameraButton.addEventListener('click', stopCamera);
-cameraSelect.addEventListener('change', () => {
-    if (cameraModeActive) startCamera();
-});
+// Event Listeners
 playPauseButton.addEventListener('click', () => (isPlaying ? pauseScanning() : startScanning()));
 stopButton.addEventListener('click', stopScanning);
 imageInput.addEventListener('change', handleMediaSelection);
@@ -726,46 +474,38 @@ freeModeToggle.addEventListener('change', () => {
     startScanning();
 });
 
-speedRange.addEventListener('input', updateSettings);
 resolutionRange.addEventListener('input', updateSettings);
+speedRange.addEventListener('input', updateSettings);
 waveTypeSelect.addEventListener('change', updateSettings);
 attackRange.addEventListener('input', updateSettings);
 releaseRange.addEventListener('input', updateSettings);
 filterRange.addEventListener('input', updateSettings);
 reverbRange.addEventListener('input', updateSettings);
-detectMidiButton.addEventListener('click', detectMidiDevices);
-midiInputSelect.addEventListener('change', () => {
-    if (!midiAccess) return;
-    setMidiInputHandler(midiAccess.inputs.get(midiInputSelect.value) || null);
-});
-clearMidiMappingsButton.addEventListener('click', () => {
-    midiMappings.clear();
-    midiLearningTarget = null;
-    midiLearnButtons.forEach((button) => button.classList.remove('is-learning'));
-    updateMidiButtonLabels();
-    setMidiStatus('Vínculos MIDI eliminados.');
-});
-midiLearnButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-        if (!selectedMidiInput) {
-            setMidiStatus('Detecta y selecciona un dispositivo MIDI antes de asignar un slider.', 'error');
-            return;
-        }
-        midiLearningTarget = button.dataset.midiTarget;
-        midiLearnButtons.forEach((learnButton) => learnButton.classList.toggle('is-learning', learnButton === button));
-        setMidiStatus(`Mueve un control MIDI para asignarlo a ${button.dataset.midiTarget}.`);
-    });
-});
 
 document.getElementById('infoButton').addEventListener('click', () => openModal(infoModal));
 document.getElementById('closeInfoButton').addEventListener('click', () => closeModal(infoModal));
 document.getElementById('infoConfirmButton').addEventListener('click', () => closeModal(infoModal));
+
 document.getElementById('settingsButton').addEventListener('click', () => openModal(settingsModal));
 document.getElementById('closeSettingsButton').addEventListener('click', () => closeModal(settingsModal));
 document.getElementById('settingsConfirmButton').addEventListener('click', () => closeModal(settingsModal));
+
+document.getElementById('startCameraButton').addEventListener('click', async () => {
+    openModal(cameraModal);
+    await refreshCameraList();
+});
+document.getElementById('closeCameraModalButton').addEventListener('click', () => closeModal(cameraModal));
+toggleCameraActiveButton.addEventListener('click', async () => {
+    if (!cameraModeActive) await startCamera();
+    else stopCamera();
+});
+stopCameraButton.addEventListener('click', stopCamera);
+cameraSelect.addEventListener('change', () => { if (cameraModeActive) startCamera(); });
+
 document.getElementById('messageBoardButton').addEventListener('click', () => openModal(messageBoardModal));
 document.getElementById('messageBoardConfirmButton').addEventListener('click', () => closeModal(messageBoardModal));
 
+// Dragging for Settings Window
 let settingsDragState = null;
 settingsHeader.addEventListener('pointerdown', (event) => {
     if (event.target.closest('button')) return;
@@ -779,25 +519,12 @@ settingsHeader.addEventListener('pointerdown', (event) => {
     };
     settingsHeader.setPointerCapture(event.pointerId);
 });
-
 settingsHeader.addEventListener('pointermove', (event) => {
     if (!settingsDragState) return;
     settingsWindow.style.left = `${event.clientX - settingsDragState.offsetX}px`;
     settingsWindow.style.top = `${event.clientY - settingsDragState.offsetY}px`;
 });
-
 settingsHeader.addEventListener('pointerup', () => { settingsDragState = null; });
-settingsHeader.addEventListener('pointercancel', () => { settingsDragState = null; });
-
-minimizeSettingsButton.addEventListener('click', () => {
-    settingsModal.classList.add('hidden');
-    settingsMinimizedIcon.classList.remove('hidden');
-});
-
-settingsMinimizedIcon.addEventListener('click', () => {
-    settingsMinimizedIcon.classList.add('hidden');
-    settingsModal.classList.remove('hidden');
-});
 
 function updateClock() {
     const now = new Date();
@@ -805,8 +532,7 @@ function updateClock() {
     const minutes = now.getMinutes().toString().padStart(2, '0');
     document.getElementById('clockDisplay').innerText = `${hours}:${minutes}`;
     const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    document.getElementById('dateDisplay').innerText =
-        `${days[now.getDay()]} ${now.getDate()}/${now.getMonth() + 1}`;
+    document.getElementById('dateDisplay').innerText = `${days[now.getDay()]} ${now.getDate()}/${now.getMonth() + 1}`;
 }
 
 updateSettings();
