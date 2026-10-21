@@ -1,11 +1,25 @@
+html {
+    min-width: 320px;
+    min-height: 100%;
+    overflow-x: hidden;
+}
+
 body {
     font-family: 'Inter', sans-serif;
     background-color: #ededed;
     background-image: linear-gradient(0deg, transparent 50%, rgba(255, 255, 255, 0.6) 50%);
     background-size: 100% 4px;
     overflow-x: hidden;
+    min-height: 100dvh;
+    margin: 0;
     user-select: none;
     cursor: none;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
 }
 
 body * {
@@ -42,7 +56,7 @@ body.camera-mode-active .lid-cursor {
 }
 
 .scanner-app-view {
-    height: min(76vh, 42rem);
+    height: min(70dvh, 42rem);
     min-height: 0;
 }
 
@@ -70,13 +84,69 @@ body.camera-mode-active .lid-cursor {
     gap: 0.5rem;
 }
 
+.scanner-download-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.media-file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.footer-bar {
+    gap: 1rem;
+}
+
+.footer-controls {
+    min-width: 0;
+}
+
+.footer-controls > button,
+#footerHomeButton {
+    flex-shrink: 1;
+}
+
 .canvas-container #canvas {
-    max-height: calc(76vh - 15rem);
+    max-height: calc(70dvh - 15rem);
     width: auto;
     max-width: 100%;
 }
 
 @media (max-width: 640px) {
+    .scanner-app-view {
+        height: auto;
+        min-height: min(62dvh, 36rem);
+    }
+
+    .canvas-container #canvas {
+        max-height: 42dvh;
+    }
+
+    .footer-bar {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        gap: 0.5rem;
+    }
+
+    #footerHomeButton,
+    .footer-controls > button {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-width: 3px;
+    }
+
+    .footer-controls {
+        gap: 0.35rem;
+    }
+
+    #messageBoardButton > div {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
     .scanner-workspace {
         grid-template-columns: 1fr;
         grid-template-rows: auto minmax(0, 1fr);
@@ -93,6 +163,51 @@ body.camera-mode-active .lid-cursor {
     .scanner-playback-controls {
         flex-direction: row;
     }
+
+    .scanner-download-controls {
+        flex-direction: row;
+    }
+}
+
+@media (max-height: 700px) and (min-width: 641px) {
+    .scanner-app-view {
+        height: auto;
+        min-height: 26rem;
+    }
+
+    .canvas-container #canvas {
+        max-height: 38dvh;
+    }
+}
+
+@media (max-width: 400px) {
+    .footer-bar {
+        align-items: flex-end;
+        padding-bottom: 0.5rem;
+    }
+
+    #footerHomeButton,
+    .footer-controls > button {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    #messageBoardButton {
+        bottom: 0.65rem;
+    }
+
+    #messageBoardButton > div {
+        max-width: 8.5rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    #dateDisplay {
+        max-width: 5.75rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 }
 
 /* Resizable and Movable Settings Window */
@@ -102,8 +217,9 @@ body.camera-mode-active .lid-cursor {
 
 .settings-window {
     position: absolute;
-    top: 20%;
+    top: 50%;
     right: 5rem;
+    transform: translateY(-50%);
     width: 22rem;
     min-width: 16rem;
     max-width: calc(100vw - 2rem);

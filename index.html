@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -8,12 +8,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Tone.js for sound effects -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- MP3 encoder for offline exports -->
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.all.js"></script>
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Archivo CSS Externo -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="h-screen flex flex-col justify-between select-none relative overflow-hidden">
+<body class="min-h-screen flex flex-col justify-between select-none relative overflow-x-hidden overflow-y-auto">
 
     <!-- Custom LID Hand Cursor -->
     <div id="lidCursor" class="lid-cursor"></div>
@@ -48,20 +50,20 @@
                     <div class="bg-blue-500 p-2 rounded-xl text-white font-bold">AUDIO</div>
                     <div>
                         <h2 class="text-xl font-bold text-blue-600">Traductor de bits</h2>
-                        <p class="text-gray-500 text-xs">Carga una imagen para visualizarla y escanearla en audio.</p>
+                        <p class="text-gray-500 text-xs">Carga una imagen para convertirla en audio o un audio para visualizar su espectro.</p>
                     </div>
                 </div>
             </div>
 
             <div class="scanner-workspace">
                 <aside class="scanner-controls">
-                    <label for="imageInput" class="block text-sm font-semibold mb-2 text-gray-700">1. Cargar imagen:</label>
-                    <label for="imageInput" id="mediaUploadZone" class="media-upload-zone flex min-h-16 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/60 px-3 py-2 text-center text-sm text-blue-700 transition cursor-pointer hover:border-blue-500 hover:bg-blue-50">
+                    <label for="imageInput" class="block text-sm font-semibold mb-2 text-gray-700">1. Cargar imagen o audio:</label>
+                    <label for="imageInput" id="mediaUploadZone" class="media-upload-zone flex min-h-16 w-full min-w-0 flex-col items-center justify-center rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/60 px-3 py-2 text-center text-sm text-blue-700 transition cursor-pointer hover:border-blue-500 hover:bg-blue-50">
                         <span class="text-2xl" aria-hidden="true">+</span>
-                        <span class="font-semibold">Seleccionar archivo</span>
-                        <span class="text-xs text-blue-500">Solo imágenes</span>
+                        <span class="media-file-name block w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold">Seleccionar archivo</span>
+                        <span class="text-xs text-blue-500">Imágenes o audio MP3, WAV y OGG</span>
                     </label>
-                    <input type="file" id="imageInput" accept="image/*" class="sr-only">
+                    <input type="file" id="imageInput" accept="image/*,audio/mpeg,audio/wav,audio/ogg" class="sr-only">
                     <label class="scanner-free-mode flex cursor-pointer items-start gap-2 text-sm font-semibold text-gray-700">
                         <input id="freeModeToggle" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-blue-500">
                         <span>Modo libre: mover la barra con el cursor</span>
@@ -69,6 +71,10 @@
                     <div class="scanner-playback-controls">
                         <button id="playPauseButton" type="button" class="rounded-xl bg-green-500 px-4 py-3 font-bold text-white shadow-md transition hover:bg-green-600 cursor-pointer" disabled>Play</button>
                         <button id="stopButton" type="button" class="rounded-xl bg-red-500 px-4 py-3 font-bold text-white shadow-md transition hover:bg-red-600 cursor-pointer" disabled>Stop</button>
+                    </div>
+                    <div class="scanner-download-controls">
+                        <button id="downloadPngButton" type="button" class="rounded-xl bg-blue-500 px-3 py-2 font-bold text-white shadow-md transition hover:bg-blue-600 cursor-pointer" disabled>Descargar PNG</button>
+                        <button id="downloadMp3Button" type="button" class="rounded-xl bg-purple-500 px-3 py-2 font-bold text-white shadow-md transition hover:bg-purple-600 cursor-pointer" disabled>Descargar MP3</button>
                     </div>
                 </aside>
                 <div id="canvasContainer" class="canvas-container flex justify-center bg-gray-900 rounded-xl p-2 overflow-hidden border border-gray-300 relative w-full shadow-inner">
@@ -82,7 +88,7 @@
 
     <!-- Bottom LID Menu Wave Bar -->
     <footer class="relative w-full h-24 md:h-28 z-20 overflow-visible">
-        <div class="absolute inset-0 bg-gradient-to-t from-gray-300 via-gray-200 to-transparent border-t-2 border-blue-400/80 shadow-[0_-10px_25px_rgba(0,0,0,0.08)] flex items-center justify-between px-6 md:px-16">
+        <div id="footerBar" class="footer-bar absolute inset-0 bg-gradient-to-t from-gray-300 via-gray-200 to-transparent border-t-2 border-blue-400/80 shadow-[0_-10px_25px_rgba(0,0,0,0.08)] flex items-center justify-between px-6 md:px-16">
             
             <!-- Bottom Left: LID Instagram Link -->
             <a id="footerHomeButton" href="https://www.instagram.com/lid.udp/" target="_blank" rel="noopener noreferrer" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" aria-label="Instagram de LID">
@@ -101,7 +107,7 @@
             </div>
 
             <!-- Bottom Right Controls: MediaPipe Toggle & Settings -->
-            <div class="flex items-center gap-3">
+            <div id="footerControls" class="footer-controls flex items-center gap-3">
                 <button id="startCameraButton" type="button" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-emerald-100 to-white border-4 border-emerald-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" title="Activar/Desactivar MediaPipe">
                     <span class="text-emerald-600 font-extrabold text-[10px] tracking-tight group-hover:text-emerald-700 text-center px-1">MEDIA PIPE</span>
                 </button>
@@ -148,14 +154,20 @@
                     <button id="closeSettingsButton" type="button" class="text-gray-400 hover:text-gray-600 font-bold text-lg px-2 cursor-pointer">×</button>
                 </div>
             </div>
-            <div class="space-y-2 mb-3 text-xs">
+            <div class="mb-3 border-b border-gray-200">
+                <div class="flex gap-1" role="tablist" aria-label="Ajustes">
+                    <button id="soundSettingsTab" type="button" role="tab" aria-selected="true" aria-controls="soundSettingsPanel" class="settings-tab rounded-t-lg border-b-2 border-blue-500 px-3 py-2 text-xs font-bold text-blue-600 cursor-pointer">Ajustes de Sonido</button>
+                    <button id="visualSettingsTab" type="button" role="tab" aria-selected="false" aria-controls="visualSettingsPanel" class="settings-tab rounded-t-lg border-b-2 border-transparent px-3 py-2 text-xs font-bold text-gray-500 hover:text-blue-600 cursor-pointer">Ajustes de Imagen</button>
+                </div>
+            </div>
+            <div id="soundSettingsPanel" role="tabpanel" aria-labelledby="soundSettingsTab" class="settings-tab-panel space-y-2 mb-3 text-xs">
                 <div class="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200">
                     <div>
-                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Columnas: <span id="resValue" class="text-blue-600">32</span></span></label>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Columnas: <span id="resValue" class="editable-value text-blue-600 cursor-text">32</span></span><button id="learnResolutionMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                         <input type="range" id="resolution" min="8" max="1024" value="32" step="4" class="w-full accent-blue-500 cursor-pointer">
                     </div>
                     <div>
-                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Velocidad: <span id="speedValue" class="text-blue-600">150</span> ms</span></label>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Velocidad: <span id="speedValue" class="editable-value text-blue-600 cursor-text">150</span> ms</span><button id="learnSpeedMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                         <input type="range" id="speed" min="20" max="1000" value="150" step="10" class="w-full accent-blue-500 cursor-pointer">
                     </div>
                     <div class="col-span-2">
@@ -173,29 +185,56 @@
                     <h4 class="font-bold text-gray-700 text-xs border-b pb-1">Sintetizador</h4>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="flex justify-between font-semibold mb-1 text-gray-700"><span>Ataque: <span id="attackValue" class="text-blue-600">0.05s</span></span></label>
+                            <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Ataque: <span id="attackValue" class="editable-value text-blue-600 cursor-text">0.05s</span></span><button id="learnAttackMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                             <input type="range" id="attack" min="0.01" max="1" value="0.05" step="0.01" class="w-full accent-blue-500 cursor-pointer">
                         </div>
                         <div>
-                            <label class="flex justify-between font-semibold mb-1 text-gray-700"><span>Release: <span id="releaseValue" class="text-blue-600">0.1s</span></span></label>
+                            <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Release: <span id="releaseValue" class="editable-value text-blue-600 cursor-text">0.1s</span></span><button id="learnReleaseMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                             <input type="range" id="release" min="0.05" max="3" value="0.1" step="0.05" class="w-full accent-blue-500 cursor-pointer">
                         </div>
                         <div>
-                            <label class="flex justify-between font-semibold mb-1 text-gray-700"><span>Frecuencia mínima: <span id="minFrequencyValue" class="text-blue-600">100Hz</span></span></label>
+                            <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Frecuencia mínima: <span id="minFrequencyValue" class="editable-value text-blue-600 cursor-text">100Hz</span></span><button id="learnMinFrequencyMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                             <input type="range" id="minFrequency" min="20" max="2000" value="100" step="10" class="w-full accent-blue-500 cursor-pointer">
                         </div>
                         <div>
-                            <label class="flex justify-between font-semibold mb-1 text-gray-700"><span>Frecuencia máxima: <span id="maxFrequencyValue" class="text-blue-600">4000Hz</span></span></label>
+                            <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Frecuencia máxima: <span id="maxFrequencyValue" class="editable-value text-blue-600 cursor-text">4000Hz</span></span><button id="learnMaxFrequencyMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                             <input type="range" id="maxFrequency" min="200" max="10000" value="4000" step="100" class="w-full accent-blue-500 cursor-pointer">
                         </div>
                         <div>
-                            <label class="flex justify-between font-semibold mb-1 text-gray-700"><span>Volumen: <span id="volumeValue" class="text-blue-600">80%</span></span></label>
+                            <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Volumen: <span id="volumeValue" class="editable-value text-blue-600 cursor-text">80%</span></span><button id="learnVolumeMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                             <input type="range" id="volume" min="0" max="1" value="0.8" step="0.05" class="w-full accent-blue-500 cursor-pointer">
                         </div>
                         <div>
-                            <label class="flex justify-between font-semibold mb-1 text-gray-700"><span>Reverb: <span id="reverbValue" class="text-blue-600">0%</span></span></label>
+                            <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Reverb: <span id="reverbValue" class="editable-value text-blue-600 cursor-text">0%</span></span><button id="learnReverbMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                             <input type="range" id="reverb" min="0" max="1" value="0" step="0.05" class="w-full accent-blue-500 cursor-pointer">
                         </div>
+                    </div>
+                </div>
+                <div class="bg-blue-50/70 p-2.5 rounded-xl border border-blue-200 space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="font-bold text-gray-700 text-xs">Control MIDI</h4>
+                        <span id="midiStatus" class="text-[10px] text-gray-500">Desconectado</span>
+                    </div>
+                    <select id="midiInputSelect" class="w-full bg-white border border-gray-300 rounded-lg px-2 py-1 text-gray-700 outline-none focus:border-blue-500 cursor-pointer text-xs" disabled>
+                        <option value="">Selecciona una entrada MIDI</option>
+                    </select>
+                    <button id="midiToggleButton" type="button" class="w-full rounded-lg bg-blue-500 px-3 py-2 font-bold text-white shadow-sm transition hover:bg-blue-600 cursor-pointer text-xs">Activar MIDI</button>
+                    <p class="text-[10px] leading-tight text-gray-500">CC 1-11 controlan los sliders en el orden mostrado, incluidos los ajustes de imagen.</p>
+                </div>
+            </div>
+            <div id="visualSettingsPanel" role="tabpanel" aria-labelledby="visualSettingsTab" class="settings-tab-panel hidden space-y-2 mb-3 text-xs">
+                <div class="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                    <div>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Brillo: <span id="imageBrightnessValue" class="editable-value text-blue-600 cursor-text">100%</span></span><button id="learnBrightnessMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
+                        <input type="range" id="imageBrightness" min="0" max="200" value="100" step="1" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Contraste: <span id="imageContrastValue" class="editable-value text-blue-600 cursor-text">100%</span></span><button id="learnContrastMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
+                        <input type="range" id="imageContrast" min="0" max="200" value="100" step="1" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Opacidad: <span id="imageOpacityValue" class="editable-value text-blue-600 cursor-text">100%</span></span><button id="learnOpacityMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
+                        <input type="range" id="imageOpacity" min="0" max="100" value="100" step="1" class="w-full accent-blue-500 cursor-pointer">
                     </div>
                 </div>
             </div>
