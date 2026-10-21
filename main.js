@@ -17,8 +17,12 @@ const attackRange = document.getElementById('attack');
 const attackValue = document.getElementById('attackValue');
 const releaseRange = document.getElementById('release');
 const releaseValue = document.getElementById('releaseValue');
-const filterRange = document.getElementById('filter');
-const filterValue = document.getElementById('filterValue');
+const minFrequencyRange = document.getElementById('minFrequency');
+const minFrequencyValue = document.getElementById('minFrequencyValue');
+const maxFrequencyRange = document.getElementById('maxFrequency');
+const maxFrequencyValue = document.getElementById('maxFrequencyValue');
+const volumeRange = document.getElementById('volume');
+const volumeValue = document.getElementById('volumeValue');
 const reverbRange = document.getElementById('reverb');
 const reverbValue = document.getElementById('reverbValue');
 
@@ -43,7 +47,6 @@ let currentColumn = 0;
 let scanTimer = null;
 let isPlaying = false;
 let synth = null;
-let filterNode = null;
 let reverbNode = null;
 
 let cameraStream = null;
@@ -128,7 +131,6 @@ window.addEventListener('pointermove', (event) => {
 function ensureSynth() {
     if (typeof Tone === 'undefined') return null;
     if (!synth) {
-        filterNode = new Tone.Filter(Number(filterRange.value), 'lowpass');
         reverbNode = new Tone.Reverb({ decay: 2, wet: Number(reverbRange.value) });
         synth = new Tone.Synth({
             oscillator: { type: waveTypeSelect.value },
@@ -138,10 +140,16 @@ function ensureSynth() {
                 sustain: 0.5,
                 release: Number(releaseRange.value)
             }
-        }).chain(filterNode, reverbNode, Tone.Destination);
-        Tone.Destination.volume.value = -8;
+        }).chain(reverbNode, Tone.Destination);
+        updateDestinationVolume();
     }
     return synth;
+}
+
+function updateDestinationVolume() {
+    if (typeof Tone === 'undefined' || !Tone.Destination) return;
+    const volume = Number(volumeRange.value);
+    Tone.Destination.volume.value = volume === 0 ? -Infinity : 20 * Math.log10(volume);
 }
 
 function startAudio() {
@@ -369,7 +377,9 @@ function getColumnFrequency(column) {
     }
     const count = pixels.length / 4;
     const brightness = (r + g + b) / (count * 3 * 255);
-    return 100 * Math.pow(4000 / 100, 1 - brightness);
+    const minFrequency = Number(minFrequencyRange.value);
+    const maxFrequency = Math.max(minFrequency, Number(maxFrequencyRange.value));
+    return minFrequency * Math.pow(maxFrequency / minFrequency, 1 - brightness);
 }
 
 function scanNextColumn() {
@@ -451,7 +461,9 @@ function updateSettings() {
     speedValue.innerText = speedRange.value;
     attackValue.innerText = `${attackRange.value}s`;
     releaseValue.innerText = `${releaseRange.value}s`;
-    filterValue.innerText = `${filterRange.value}Hz`;
+    minFrequencyValue.innerText = `${minFrequencyRange.value}Hz`;
+    maxFrequencyValue.innerText = `${maxFrequencyRange.value}Hz`;
+    volumeValue.innerText = `${Math.round(Number(volumeRange.value) * 100)}%`;
     reverbValue.innerText = `${Math.round(Number(reverbRange.value) * 100)}%`;
 
     if (synth) {
@@ -459,7 +471,7 @@ function updateSettings() {
         synth.envelope.attack = Number(attackRange.value);
         synth.envelope.release = Number(releaseRange.value);
     }
-    if (filterNode) filterNode.frequency.value = Number(filterRange.value);
+    updateDestinationVolume();
     if (reverbNode) reverbNode.wet.value = Number(reverbRange.value);
     if (mediaLoaded && !isPlaying) drawMedia();
 }
@@ -479,7 +491,9 @@ speedRange.addEventListener('input', updateSettings);
 waveTypeSelect.addEventListener('change', updateSettings);
 attackRange.addEventListener('input', updateSettings);
 releaseRange.addEventListener('input', updateSettings);
-filterRange.addEventListener('input', updateSettings);
+minFrequencyRange.addEventListener('input', updateSettings);
+maxFrequencyRange.addEventListener('input', updateSettings);
+volumeRange.addEventListener('input', updateSettings);
 reverbRange.addEventListener('input', updateSettings);
 
 document.getElementById('infoButton').addEventListener('click', () => openModal(infoModal));
