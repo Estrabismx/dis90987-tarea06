@@ -1,11 +1,35 @@
-const lidMenuView = document.getElementById('lidMenuView');
+// --- Water Drop Sound Synthesis ---
+let audioInitialized = false;
+const dropSynth = new Tone.Synth({
+    oscillator: { type: "sine" },
+    envelope: {
+        attack: 0.002,
+        decay: 0.15,
+        sustain: 0,
+        release: 0.1
+    }
+}).toDestination();
+
+function initLidAudio() {
+    if (!audioInitialized) {
+        Tone.start();
+        audioInitialized = true;
+    }
+}
+
+function playDropSound() {
+    initLidAudio();
+    try {
+        const now = Tone.now();
+        dropSynth.triggerAttackRelease("E6", "16n", now);
+        dropSynth.frequency.exponentialRampTo("A5", 0.12, now + 0.02);
+    } catch(e) {}
+}
+
 const scannerAppView = document.getElementById('scannerAppView');
 const appTitleHeader = document.getElementById('appTitleHeader');
-const scannerChannelButton = document.getElementById('scannerChannelButton');
 const cameraAppView = document.getElementById('cameraAppView');
 const headerMenuButton = document.getElementById('headerMenuButton');
-const footerHomeButton = document.getElementById('footerHomeButton');
-const closeScannerButton = document.getElementById('closeScannerButton');
 const playPauseButton = document.getElementById('playPauseButton');
 const stopButton = document.getElementById('stopButton');
 const freeModeToggle = document.getElementById('freeModeToggle');
@@ -42,17 +66,14 @@ const midiStatus = document.getElementById('midiStatus');
 const clearMidiMappingsButton = document.getElementById('clearMidiMappingsButton');
 const midiLearnButtons = document.querySelectorAll('[data-midi-target]');
 const lidCursor = document.getElementById('lidCursor');
-const dwellProgress = document.getElementById('dwellProgress');
-const dwellProgressBar = document.getElementById('dwellProgressBar');
-const dwellProgressValue = document.getElementById('dwellProgressValue');
-const closeCameraButton = document.getElementById('closeCameraButton');
 const startCameraButton = document.getElementById('startCameraButton');
+const closeCameraButton = document.getElementById('closeCameraButton');
 const stopCameraButton = document.getElementById('stopCameraButton');
 const cameraSelect = document.getElementById('cameraSelect');
 const cameraStatus = document.getElementById('cameraStatus');
 const cameraVideo = document.getElementById('cameraVideo');
-const cameraProcessingCanvas = document.getElementById('cameraProcessingCanvas');
-const cameraProcessingContext = cameraProcessingCanvas.getContext('2d', { willReadFrequently: true });
+const mediaPipeFooterText = document.getElementById('mediaPipeFooterText');
+const mediaPipeFooterDot = document.getElementById('mediaPipeFooterDot');
 
 let mediaObjectUrl = null;
 let mediaSource = null;
@@ -66,7 +87,6 @@ let reverbNode = null;
 let cameraStream = null;
 let cameraAnimationFrame = null;
 let cameraModeActive = false;
-let lastGesturePosition = null;
 let smoothedGesturePosition = null;
 let handWasOpen = false;
 let handProcessor = null;
@@ -135,9 +155,11 @@ document.addEventListener('pointerenter', () => {
 });
 
 document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && (!cameraAppView.classList.contains('hidden') || cameraModeActive)) {
+    if (event.key === 'Escape') {
         event.preventDefault();
-        returnToLidHome();
+        if (!cameraAppView.classList.contains('hidden')) {
+            cameraAppView.classList.add('hidden');
+        }
     }
 });
 
@@ -165,28 +187,6 @@ function ensureSynth() {
 function startAudio() {
     if (typeof Tone !== 'undefined') Tone.start();
     return ensureSynth();
-}
-
-function launchScannerChannel() {
-    lidMenuView.classList.add('hidden');
-    scannerAppView.classList.remove('hidden');
-    cameraAppView.classList.add('hidden');
-    appTitleHeader.innerText = 'Canal Traductor de bits';
-}
-
-function returnToLidHome() {
-    stopScanning();
-    stopCamera();
-    scannerAppView.classList.add('hidden');
-    cameraAppView.classList.add('hidden');
-    lidMenuView.classList.remove('hidden');
-    appTitleHeader.innerText = 'Traductor de bits';
-}
-
-function closeCameraWindow() {
-    cameraAppView.classList.add('hidden');
-    lidMenuView.classList.remove('hidden');
-    appTitleHeader.innerText = 'Traductor de bits';
 }
 
 function setCameraStatus(message, isError = false) {
@@ -227,15 +227,6 @@ async function refreshCameraList() {
     }
 }
 
-async function launchCameraChannel() {
-    stopScanning();
-    scannerAppView.classList.add('hidden');
-    lidMenuView.classList.add('hidden');
-    cameraAppView.classList.remove('hidden');
-    appTitleHeader.innerText = 'Modo cámara';
-    await refreshCameraList();
-}
-
 function stopCamera() {
     cameraModeActive = false;
     document.body.classList.remove('camera-mode-active');
@@ -245,15 +236,14 @@ function stopCamera() {
     cameraStream = null;
     cameraVideo.srcObject = null;
     stopCameraButton.disabled = true;
-    startCameraButton.disabled = false;
-    startCameraButton.classList.add('opacity-50');
-    lastGesturePosition = null;
     smoothedGesturePosition = null;
     handWasOpen = false;
     handInferenceBusy = false;
     lastHandSeenTime = 0;
-    lidCursor.style.opacity = '0';
-    resetDwell();
+    lidCursor.style.opacity = '1';
+    mediaPipeFooterDot.className = 'w-2.5 h-2.5 rounded-full bg-gray-300';
+    mediaPipeFooterText.innerText = 'MediaPipe';
+    setCameraStatus('Cámara detenida. Pulsa el botón para iniciarla de nuevo.');
 }
 
 async function startCamera() {
@@ -262,7 +252,8 @@ async function startCamera() {
         return;
     }
 
-    stopCamera();
+    if (cameraModeActive) return;
+
     try {
         setCameraStatus('Cargando MediaPipe y solicitando acceso a la cámara...');
         const handPromise = loadMediaPipeHands();
@@ -281,12 +272,12 @@ async function startCamera() {
         await cameraVideo.play();
         cameraModeActive = true;
         document.body.classList.add('camera-mode-active');
-        startCameraButton.disabled = true;
-        startCameraButton.classList.remove('opacity-50');
         stopCameraButton.disabled = false;
         refreshCameraList();
         await handPromise;
-        setCameraStatus('Cámara activa. Usa la mano abierta para mover y ciérrala para hacer click.');
+        setCameraStatus('Cámara activa. Usa la mano abierta para mover el cursor y ciérrala para hacer clic en cualquier parte.');
+        mediaPipeFooterDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+        mediaPipeFooterText.innerText = 'Activo';
         processCameraFrame();
     } catch (error) {
         if (cameraStream) {
@@ -295,6 +286,20 @@ async function startCamera() {
             cameraVideo.srcObject = null;
         }
         setCameraStatus(`No se pudo iniciar la cámara: ${error.message}`, true);
+        mediaPipeFooterDot.className = 'w-2.5 h-2.5 rounded-full bg-red-400';
+        mediaPipeFooterText.innerText = 'Error';
+    }
+}
+
+async function toggleCameraModal() {
+    if (cameraAppView.classList.contains('hidden')) {
+        cameraAppView.classList.remove('hidden');
+        await refreshCameraList();
+        if (!cameraModeActive) {
+            await startCamera();
+        }
+    } else {
+        cameraAppView.classList.add('hidden');
     }
 }
 
@@ -311,12 +316,6 @@ function updateGestureCursor(x, y) {
     lidCursor.style.left = `${smoothedGesturePosition.x * window.innerWidth}px`;
     lidCursor.style.top = `${smoothedGesturePosition.y * window.innerHeight}px`;
     lidCursor.style.opacity = '1';
-}
-
-function resetDwell() {
-    dwellProgress.classList.add('hidden');
-    dwellProgressBar.style.width = '0%';
-    dwellProgressValue.innerText = '0%';
 }
 
 function getInteractiveTarget(x, y) {
@@ -385,7 +384,6 @@ function handleHandResults(results) {
 
     lastHandSeenTime = performance.now();
     const position = mapHandToScreen(landmarks);
-    lastGesturePosition = position;
     updateGestureCursor(position.x, position.y);
     clickWithClosedHand(
         smoothedGesturePosition.x,
@@ -414,11 +412,8 @@ function processCameraFrame() {
     if (!cameraModeActive) return;
     processHandFrame(performance.now());
     if (performance.now() - lastHandSeenTime > handLostTimeout) {
-        lastGesturePosition = null;
         smoothedGesturePosition = null;
         handWasOpen = false;
-        lidCursor.style.opacity = '0';
-        resetDwell();
     }
     cameraAnimationFrame = requestAnimationFrame(processCameraFrame);
 }
@@ -431,7 +426,7 @@ function closeModal(modal) {
     modal.classList.add('hidden');
 }
 
-function updateUploadLabel(file, type) {
+function updateUploadLabel(file) {
     mediaUploadZone.querySelector('span:nth-child(2)').innerText = file.name;
     mediaUploadZone.querySelector('span:nth-child(3)').innerText = 'Imagen cargada. Listo para iniciar.';
 }
@@ -684,7 +679,6 @@ async function detectMidiDevices() {
                 : 'No se pudo acceder a los dispositivos MIDI.',
             'error'
         );
-        console.error('Error al solicitar acceso MIDI:', error);
     } finally {
         detectMidiButton.disabled = false;
     }
@@ -709,20 +703,16 @@ function updateSettings() {
     if (mediaLoaded && !isPlaying) drawMedia();
 }
 
-scannerChannelButton.addEventListener('click', launchScannerChannel);
-scannerChannelButton.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') launchScannerChannel();
+headerMenuButton.addEventListener('click', () => {
+    stopScanning();
+    scannerAppView.scrollIntoView({ behavior: 'smooth' });
 });
-headerMenuButton.addEventListener('click', returnToLidHome);
-closeScannerButton.addEventListener('click', returnToLidHome);
-closeCameraButton.addEventListener('click', closeCameraWindow);
-startCameraButton.addEventListener('click', async () => {
-    if (cameraAppView.classList.contains('hidden')) {
-        await launchCameraChannel();
-    }
-    if (cameraModeActive) return;
-    await startCamera();
+
+startCameraButton.addEventListener('click', toggleCameraModal);
+closeCameraButton.addEventListener('click', () => {
+    cameraAppView.classList.add('hidden');
 });
+
 stopCameraButton.addEventListener('click', stopCamera);
 cameraSelect.addEventListener('change', () => {
     if (cameraModeActive) startCamera();
@@ -777,10 +767,8 @@ document.getElementById('messageBoardButton').addEventListener('click', () => op
 document.getElementById('messageBoardConfirmButton').addEventListener('click', () => closeModal(messageBoardModal));
 
 let settingsDragState = null;
-
 settingsHeader.addEventListener('pointerdown', (event) => {
     if (event.target.closest('button')) return;
-
     const bounds = settingsWindow.getBoundingClientRect();
     settingsWindow.style.left = `${bounds.left}px`;
     settingsWindow.style.top = `${bounds.top}px`;
@@ -794,18 +782,12 @@ settingsHeader.addEventListener('pointerdown', (event) => {
 
 settingsHeader.addEventListener('pointermove', (event) => {
     if (!settingsDragState) return;
-
     settingsWindow.style.left = `${event.clientX - settingsDragState.offsetX}px`;
     settingsWindow.style.top = `${event.clientY - settingsDragState.offsetY}px`;
 });
 
-settingsHeader.addEventListener('pointerup', () => {
-    settingsDragState = null;
-});
-
-settingsHeader.addEventListener('pointercancel', () => {
-    settingsDragState = null;
-});
+settingsHeader.addEventListener('pointerup', () => { settingsDragState = null; });
+settingsHeader.addEventListener('pointercancel', () => { settingsDragState = null; });
 
 minimizeSettingsButton.addEventListener('click', () => {
     settingsModal.classList.add('hidden');
@@ -815,34 +797,6 @@ minimizeSettingsButton.addEventListener('click', () => {
 settingsMinimizedIcon.addEventListener('click', () => {
     settingsMinimizedIcon.classList.add('hidden');
     settingsModal.classList.remove('hidden');
-});
-
-let minimizedIconDragState = null;
-
-settingsMinimizedIcon.addEventListener('pointerdown', (event) => {
-    const bounds = settingsMinimizedIcon.getBoundingClientRect();
-    minimizedIconDragState = {
-        offsetX: event.clientX - bounds.left,
-        offsetY: event.clientY - bounds.top
-    };
-    settingsMinimizedIcon.setPointerCapture(event.pointerId);
-});
-
-settingsMinimizedIcon.addEventListener('pointermove', (event) => {
-    if (!minimizedIconDragState) return;
-
-    settingsMinimizedIcon.style.left = `${event.clientX - minimizedIconDragState.offsetX}px`;
-    settingsMinimizedIcon.style.top = `${event.clientY - minimizedIconDragState.offsetY}px`;
-    settingsMinimizedIcon.style.right = 'auto';
-    settingsMinimizedIcon.style.bottom = 'auto';
-});
-
-settingsMinimizedIcon.addEventListener('pointerup', () => {
-    minimizedIconDragState = null;
-});
-
-settingsMinimizedIcon.addEventListener('pointercancel', () => {
-    minimizedIconDragState = null;
 });
 
 function updateClock() {
