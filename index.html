@@ -17,31 +17,22 @@
 
     <!-- Custom LID Hand Cursor -->
     <div id="lidCursor" class="lid-cursor"></div>
-    <div id="dwellProgress" class="fixed bottom-28 left-1/2 z-[10000] hidden w-64 -translate-x-1/2 rounded-full bg-white/90 p-1 shadow-lg border border-emerald-200" aria-live="polite">
-        <div class="mb-1 flex justify-between px-1 text-[10px] font-bold text-emerald-700">
-            <span>Tiempo para seleccionar</span>
-            <span id="dwellProgressValue">0%</span>
-        </div>
-        <div class="h-2 overflow-hidden rounded-full bg-emerald-100">
-            <div id="dwellProgressBar" class="h-full w-0 rounded-full bg-emerald-500 transition-[width] duration-75"></div>
-        </div>
-    </div>
 
     <!-- Top Status Bar / Header -->
     <header class="w-full px-6 py-4 flex justify-between items-center z-10">
         <div class="flex items-center space-x-3">
-            <button id="headerMenuButton" class="bg-blue-500 hover:bg-blue-600 text-white font-black px-4 py-1.5 rounded-full text-sm shadow-md tracking-wider flex items-center space-x-1 cursor-pointer transition">
+            <button id="headerMenuButton" onclick="playDropSound()" class="bg-blue-500 hover:bg-blue-600 text-white font-black px-4 py-1.5 rounded-full text-sm shadow-md tracking-wider flex items-center space-x-1 cursor-pointer transition">
                 <span>LID</span>
                 <span class="text-xs bg-white text-blue-600 px-1.5 py-0.5 rounded-full font-bold">MENU</span>
             </button>
-            <h1 id="appTitleHeader" class="text-gray-700 font-bold text-lg drop-shadow-sm">Canal Traductor de bits</h1>
+            <h1 id="appTitleHeader" class="text-gray-700 font-bold text-lg drop-shadow-sm">Traductor de bits</h1>
         </div>
         <div class="flex items-center space-x-4">
             <div id="clockDisplay" class="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full shadow border border-gray-200 text-gray-700 font-bold text-sm tracking-wide">
                 00:00
             </div>
             <!-- Top Right Gear Button: Opens Web Info Modal -->
-            <button id="infoButton" class="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition cursor-pointer" title="Informacion de la Web">
+            <button id="infoButton" onclick="playDropSound()" class="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition cursor-pointer" title="Información de la Web">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -49,49 +40,19 @@
         </div>
     </header>
 
-    <!-- Main Content Area: LID Menu Channel Grid & Active App -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-2 flex items-center justify-center z-10">
+    <!-- Main Content Area: Direct Audio & Image Scanner on Main Screen -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-2 flex items-center justify-center z-10 relative">
         
-        <!-- View 1: LID Menu Channel Grid (Only Sonic Scanner Channel) -->
-        <div id="lidMenuView" class="mx-auto flex w-full max-w-xl max-h-[72vh] flex-col items-center justify-center overflow-y-auto p-4">
-            <div class="text-center mb-6">
-                <h2 class="text-2xl font-extrabold text-gray-800">Traductor de bits</h2>
-                <p class="text-gray-500 text-sm">Carga un archivo de imagen para convertirlo en sonido.</p>
-            </div>
-            
-            <div class="flex w-full justify-center">
-                <!-- Sonic Image Scanner Channel Card -->
-                <div id="scannerChannelButton" class="lid-channel bg-white rounded-2xl p-5 flex flex-col items-center justify-between h-52 border-2 border-white shadow-lg cursor-pointer relative overflow-hidden" role="button" tabindex="0">
-                    <div class="w-full flex justify-between items-center">
-                        <span class="text-[10px] font-bold tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">AUDIO & IMAGEN</span>
-                        <span class="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
-                    </div>
-                    <div class="my-auto transform hover:scale-110 transition duration-300 text-blue-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                        </svg>
-                    </div>
-                    <div class="text-center w-full">
-                        <h3 class="font-bold text-gray-800 text-base truncate">Traductor de bits01</h3>
-                        <p class="text-gray-400 text-xs truncate">Imagen a Sonido por Columnas</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- View 2: Active App (LID Aesthetic Styled) -->
-        <div id="scannerAppView" class="scanner-app-view hidden mx-auto flex w-full max-w-5xl flex-col bg-white/95 backdrop-blur-md text-gray-800 p-4 md:p-5 rounded-3xl shadow-2xl border-4 border-blue-400 animate-in fade-in zoom-in duration-200">
+        <!-- Active App View: Audio & Image Scanner (Displayed Directly) -->
+        <div id="scannerAppView" class="scanner-app-view mx-auto flex w-full max-w-5xl flex-col bg-white/95 backdrop-blur-md text-gray-800 p-4 md:p-5 rounded-3xl shadow-2xl border-4 border-blue-400 animate-in fade-in zoom-in duration-200">
             
             <div class="relative flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
                 <div class="flex items-center space-x-3">
                     <div class="bg-blue-500 p-2 rounded-xl text-white font-bold">AUDIO</div>
                     <div>
                         <h2 class="text-xl font-bold text-blue-600">Traductor de bits</h2>
-                        <p class="text-gray-500 text-xs">Carga una imagen para visualizarla en el área de trabajo.</p>
+                        <p class="text-gray-500 text-xs">Carga una imagen para visualizarla en el área de trabajo y convertirla en sonido.</p>
                     </div>
-                    <button id="closeScannerButton" type="button" class="absolute right-0 top-0 rounded-full bg-gray-100 px-3 py-1 text-xl font-bold text-gray-500 transition hover:bg-red-100 hover:text-red-600" aria-label="Cerrar reproductor">
-                        &times;
-                    </button>
                 </div>
             </div>
 
@@ -109,8 +70,8 @@
                         <span>Modo libre: mover la barra con el cursor</span>
                     </label>
                     <div class="scanner-playback-controls">
-                        <button id="playPauseButton" type="button" class="rounded-xl bg-green-500 px-4 py-3 font-bold text-white shadow-md transition hover:bg-green-600" disabled>Play</button>
-                        <button id="stopButton" type="button" class="rounded-xl bg-red-500 px-4 py-3 font-bold text-white shadow-md transition hover:bg-red-600" disabled>Stop</button>
+                        <button id="playPauseButton" onclick="playDropSound()" type="button" class="rounded-xl bg-green-500 px-4 py-3 font-bold text-white shadow-md transition hover:bg-green-600" disabled>Play</button>
+                        <button id="stopButton" onclick="playDropSound()" type="button" class="rounded-xl bg-red-500 px-4 py-3 font-bold text-white shadow-md transition hover:bg-red-600" disabled>Stop</button>
                     </div>
                 </aside>
                 <div id="canvasContainer" class="canvas-container flex justify-center bg-gray-900 rounded-xl p-2 overflow-hidden border border-gray-300 relative w-full shadow-inner">
@@ -121,17 +82,17 @@
             </div>
         </div>
 
-        <!-- View 3: Camera gesture control -->
-        <div id="cameraAppView" class="hidden mx-auto w-full max-w-2xl self-center bg-white/95 backdrop-blur-md text-gray-800 p-6 rounded-3xl shadow-2xl border-4 border-emerald-400 animate-in fade-in zoom-in duration-200">
+        <!-- Camera gesture control modal window (MediaPipe) -->
+        <div id="cameraAppView" class="hidden absolute z-30 mx-auto w-full max-w-2xl bg-white/95 backdrop-blur-md text-gray-800 p-6 rounded-3xl shadow-2xl border-4 border-emerald-400 animate-in fade-in zoom-in duration-200">
             <div class="relative flex items-center justify-between mb-5 border-b border-gray-200 pb-3">
                 <div class="flex items-center space-x-3">
                     <div class="bg-emerald-500 p-2 rounded-xl text-white font-bold">GESTOS</div>
                     <div>
-                        <h2 class="text-xl font-bold text-emerald-600">Modo cámara</h2>
-                        <p class="text-gray-500 text-xs">La imagen de la cámara se procesa localmente y no se muestra.</p>
+                        <h2 class="text-xl font-bold text-emerald-600">MediaPipe</h2>
+                        <p class="text-gray-500 text-xs">La imagen de la cámara se procesa localmente con MediaPipe.</p>
                     </div>
                 </div>
-                <button id="closeCameraButton" type="button" class="rounded-full bg-gray-100 px-3 py-1 text-xl font-bold text-gray-500 transition hover:bg-red-100 hover:text-red-600" aria-label="Cerrar modo cámara">&times;</button>
+                <button id="closeCameraButton" onclick="playDropSound()" type="button" class="rounded-full bg-gray-100 px-4 py-1.5 text-2xl font-black text-gray-600 transition hover:bg-red-100 hover:text-red-600 leading-none" aria-label="Cerrar modal de cámara">&times;</button>
             </div>
             <div class="space-y-4">
                 <div>
@@ -141,12 +102,12 @@
                     </select>
                 </div>
                 <div id="cameraStatus" class="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-700" role="status">
-                    Pulsa el botón para solicitar acceso a tus cámaras.
+                    Pulsa el botón para activar el reconocimiento con MediaPipe.
                 </div>
                 <div class="flex flex-wrap gap-3">
-                    <button id="stopCameraButton" type="button" class="rounded-xl bg-gray-200 px-5 py-2.5 font-bold text-gray-700 shadow-md transition hover:bg-gray-300" disabled>Detener cámara</button>
+                    <button id="stopCameraButton" onclick="playDropSound()" type="button" class="rounded-xl bg-gray-200 px-5 py-2.5 font-bold text-gray-700 shadow-md transition hover:bg-gray-300" disabled>Detener cámara</button>
                 </div>
-                <p class="text-xs text-gray-500">Usa la mano abierta para mover el cursor. Cierra la mano para hacer click.</p>
+                <p class="text-xs text-gray-500">Usa la mano abierta para mover el cursor. Cierra la mano para hacer clic. Puedes cerrar esta ventana con la 'X' para usar el escáner de audio e imagen con los gestos activos en segundo plano.</p>
             </div>
             <video id="cameraVideo" class="camera-processing-media" autoplay muted playsinline></video>
             <canvas id="cameraProcessingCanvas" class="camera-processing-media"></canvas>
@@ -158,13 +119,13 @@
     <footer class="relative w-full h-24 md:h-28 z-20 overflow-visible">
         <div class="absolute inset-0 bg-gradient-to-t from-gray-300 via-gray-200 to-transparent border-t-2 border-blue-400/80 shadow-[0_-10px_25px_rgba(0,0,0,0.08)] flex items-center justify-between px-6 md:px-16">
             
-            <!-- Bottom Left: LID Menu Home Button -->
-            <a id="footerHomeButton" href="https://www.instagram.com/lid.udp/" target="_blank" rel="noopener noreferrer" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" aria-label="Instagram de LID">
+            <!-- Bottom Left: LID Instagram Link Button -->
+            <a id="footerHomeButton" href="https://www.instagram.com/lid.udp/" target="_blank" rel="noopener noreferrer" onclick="playDropSound()" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" aria-label="Instagram de LID">
                 <span class="text-blue-600 font-extrabold text-lg md:text-xl tracking-tighter group-hover:text-blue-700">LID</span>
             </a>
 
-            <!-- Bottom Center: Date & Message Board Indicator (Opens Instagram Credits) -->
-            <div id="messageBoardButton" class="absolute left-1/2 flex -translate-x-1/2 flex-col items-center cursor-pointer">
+            <!-- Bottom Center: Date & Message Board Indicator (Opens Credits) -->
+            <div id="messageBoardButton" onclick="playDropSound()" class="absolute left-1/2 flex -translate-x-1/2 flex-col items-center cursor-pointer">
                 <div class="relative flex items-center space-x-2 bg-white/90 backdrop-blur-md px-6 py-2 rounded-full shadow-md border border-blue-200 hover:border-blue-400 transition">
                     <span class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-red-500 text-xs font-extrabold text-white shadow-md" aria-label="Nuevo mensaje" title="Nuevo mensaje">!</span>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -174,18 +135,19 @@
                 </div>
             </div>
 
+            <!-- Bottom Right Controls: MediaPipe Button & Settings Gear Button -->
             <div class="flex items-center gap-3">
-                <button id="startCameraButton" type="button" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-emerald-100 to-white border-4 border-emerald-400 opacity-50 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" title="Iniciar OpenCV">
-                    <span class="text-emerald-600 font-extrabold text-xs tracking-tight group-hover:text-emerald-700">OpenCV</span>
+                <button id="startCameraButton" onclick="playDropSound()" type="button" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-emerald-100 to-white border-4 border-emerald-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" title="Activar MediaPipe">
+                    <span id="mediaPipeFooterText" class="text-emerald-600 font-extrabold text-[11px] tracking-tight group-hover:text-emerald-700">MediaPipe</span>
+                    <span id="mediaPipeFooterDot" class="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-gray-300"></span>
                 </button>
 
-            <!-- Bottom Right Options Button: Opens Settings Modal (Gear Icon Restored) -->
-            <button id="settingsButton" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" title="Ajustes de Sonido y Escaner">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600 group-hover:rotate-45 transition duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-            </button>
+                <button id="settingsButton" onclick="playDropSound()" class="group relative flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" title="Ajustes de Sonido y Escáner">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600 group-hover:rotate-45 transition duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
             </div>
 
         </div>
@@ -199,12 +161,12 @@
                     <div class="p-2 bg-blue-100 text-blue-600 rounded-xl font-bold">i</div>
                     <h3 class="text-xl font-bold text-blue-600">Acerca de la Web</h3>
                 </div>
-                <button id="closeInfoButton" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer">X</button>
+                <button id="closeInfoButton" onclick="playDropSound()" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer">✕</button>
             </div>
             <div class="bg-blue-50/70 p-4 rounded-2xl border border-blue-200 text-sm text-gray-700 space-y-2 mb-6">
-                <p>Esta aplicacion web es un <strong>Traductor de bits</strong> que procesa cualquier fotografia cargada barriendo sus columnas de izquierda a derecha. Cada columna calcula el promedio de sus colores RGB e interpreta el brillo para generar frecuencias musicales en tiempo real mediante un sintetizador web.</p>
+                <p>Esta aplicación web es un <strong>Traductor de bits</strong> que procesa cualquier fotografía cargada barriendo sus columnas de izquierda a derecha. Cada columna calcula el promedio de sus colores RGB e interpreta el brillo para generar frecuencias musicales en tiempo real mediante un sintetizador web.</p>
             </div>
-            <button id="infoConfirmButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition cursor-pointer">Entendido</button>
+            <button id="infoConfirmButton" onclick="playDropSound()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition cursor-pointer">Entendido</button>
         </div>
     </div>
 
@@ -213,15 +175,15 @@
         <div id="settingsWindow" class="settings-window">
             <div id="settingsHeader" class="flex cursor-move justify-between items-center mb-4 border-b border-gray-200 pb-3">
                 <div class="flex items-center space-x-2">
-                    <div class="p-2 bg-blue-100 text-blue-600 rounded-xl font-bold">A</div>
+                    <div class="p-2 bg-blue-100 text-blue-600 rounded-xl font-bold">⚙</div>
                     <div>
-                        <h3 class="text-xl font-bold text-blue-600">Ajustes de Sonido y Escaner</h3>
-                        <p class="text-gray-500 text-xs">Configura los parametros del sintetizador y la resolucion.</p>
+                        <h3 class="text-xl font-bold text-blue-600">Ajustes de Sonido y Escáner</h3>
+                        <p class="text-gray-500 text-xs">Configura los parámetros del sintetizador y la resolución.</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button id="minimizeSettingsButton" type="button" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer" aria-label="Minimizar ajustes">−</button>
-                    <button id="closeSettingsButton" type="button" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer" aria-label="Cerrar ajustes">×</button>
+                    <button id="minimizeSettingsButton" onclick="playDropSound()" type="button" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer" aria-label="Minimizar ajustes">−</button>
+                    <button id="closeSettingsButton" onclick="playDropSound()" type="button" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer" aria-label="Cerrar ajustes">×</button>
                 </div>
             </div>
             <div class="space-y-2 mb-3">
@@ -269,7 +231,7 @@
                     <div class="bg-gray-50 p-3 rounded-2xl border border-gray-200 space-y-2">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="font-bold text-gray-700 text-xs border-b pb-1">MIDI</h4>
-                            <button id="detectMidiButton" type="button" class="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-600">
+                            <button id="detectMidiButton" onclick="playDropSound()" type="button" class="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-600">
                                 Detectar MIDI
                             </button>
                         </div>
@@ -280,31 +242,33 @@
                         <p id="midiStatus" class="text-xs text-gray-500" role="status" aria-live="polite">
                             No se ha iniciado la detección MIDI.
                         </p>
-                        <button id="clearMidiMappingsButton" type="button" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-red-300 hover:text-red-600">
+                        <button id="clearMidiMappingsButton" onclick="playDropSound()" type="button" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-red-300 hover:text-red-600">
                             Borrar vínculos MIDI
                         </button>
                     </div>
                 </div>
             </div>
 
-            <button id="settingsConfirmButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition cursor-pointer">Guardar y Cerrar</button>
+            <button id="settingsConfirmButton" onclick="playDropSound()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition cursor-pointer">Guardar y Cerrar</button>
         </div>
     </div>
-    <button id="settingsMinimizedIcon" type="button" class="fixed bottom-28 right-6 z-[110] hidden h-14 w-14 rounded-full border-4 border-blue-400 bg-white text-xl font-bold text-blue-600 shadow-xl" aria-label="Restaurar ajustes">⚙</button>
+    <button id="settingsMinimizedIcon" onclick="playDropSound()" type="button" class="fixed bottom-28 right-6 z-[110] hidden h-14 w-14 rounded-full border-4 border-blue-400 bg-white text-xl font-bold text-blue-600 shadow-xl" aria-label="Restaurar ajustes">⚙</button>
 
-    <!-- Modal 3: Message Board with Instagram Links -->
+    <!-- Modal 3: Message Board with Instagram Links (@tarozzk and @n.arkotikk) -->
     <div id="messageBoardModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[150] flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl border-2 border-blue-400 max-w-sm w-full p-6 text-center text-gray-800">
             <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
-            <h3 class="text-lg font-bold mb-2">Tablon de Mensajes</h3>
-            <p class="text-gray-600 text-sm mb-4">Creditos del Escaner Sonico LID:</p>
+            <h3 class="text-lg font-bold mb-2">Tablón de Mensajes</h3>
+            <p class="text-gray-600 text-sm mb-4">Créditos del Escáner Sónico LID:</p>
             <div class="flex flex-col space-y-2 mb-6">
-                <a href="https://instagram.com/tarozzk" target="_blank" class="text-blue-600 hover:text-blue-800 font-bold text-base underline transition">@tarozzk</a>
-                <a href="https://instagram.com/n.arkotikk" target="_blank" class="text-blue-600 hover:text-blue-800 font-bold text-base underline transition">@n.arkotikk</a>
+                <a href="https://instagram.com/tarozzk" target="_blank" onclick="playDropSound()" class="text-blue-600 hover:text-blue-800 font-bold text-base underline transition">@tarozzk</a>
+                <a href="https://instagram.com/n.arkotikk" target="_blank" onclick="playDropSound()" class="text-blue-600 hover:text-blue-800 font-bold text-base underline transition">@n.arkotikk</a>
             </div>
-            <button id="messageBoardConfirmButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-md transition cursor-pointer">Aceptar</button>
+            <button id="messageBoardConfirmButton" onclick="playDropSound()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-md transition cursor-pointer">Aceptar</button>
         </div>
     </div>
-    <script src="main.js"></script>
+
+    <!-- Archivo JS externo -->
+    <script src="script.js"></script>
 </body>
 </html>
