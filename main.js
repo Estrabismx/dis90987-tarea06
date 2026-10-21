@@ -36,6 +36,11 @@ const settingsWindow = document.getElementById('settingsWindow');
 const settingsHeader = document.getElementById('settingsHeader');
 const minimizeSettingsButton = document.getElementById('minimizeSettingsButton');
 const settingsMinimizedIcon = document.getElementById('settingsMinimizedIcon');
+const detectMidiButton = document.getElementById('detectMidiButton');
+const midiInputSelect = document.getElementById('midiInputSelect');
+const midiStatus = document.getElementById('midiStatus');
+const clearMidiMappingsButton = document.getElementById('clearMidiMappingsButton');
+const midiLearnButtons = document.querySelectorAll('[data-midi-target]');
 const lidCursor = document.getElementById('lidCursor');
 const dwellProgress = document.getElementById('dwellProgress');
 const dwellProgressBar = document.getElementById('dwellProgressBar');
@@ -72,6 +77,10 @@ let lastHandSeenTime = 0;
 let lastClosedClickTime = 0;
 let nativeCursorPosition = { x: 0.5, y: 0.5 };
 let freeScanLastColumn = -1;
+let midiAccess = null;
+let selectedMidiInput = null;
+let midiMappings = new Map();
+let midiLearningTarget = null;
 const handInferenceInterval = 50;
 const handLostTimeout = 220;
 const clickDebounce = 350;
@@ -584,6 +593,103 @@ function handleMediaSelection(event) {
     image.src = mediaObjectUrl;
 }
 
+function setMidiStatus(message, type = 'default') {
+    midiStatus.innerText = message;
+    midiStatus.className = `text-xs ${
+        type === 'error' ? 'text-red-600' : type === 'success' ? 'text-emerald-600' : 'text-gray-500'
+    }`;
+}
+
+function refreshMidiInputs() {
+    if (!midiAccess) return;
+
+    const inputs = Array.from(midiAccess.inputs.values());
+    midiInputSelect.replaceChildren();
+
+    if (inputs.length === 0) {
+        setMidiInputHandler(null);
+        midiInputSelect.disabled = true;
+        midiInputSelect.add(new Option('No se detectaron entradas MIDI', ''));
+        setMidiStatus('No hay dispositivos MIDI de entrada conectados.');
+        selectedMidiInput = null;
+        return;
+    }
+
+    inputs.forEach((input) => {
+        midiInputSelect.add(new Option(input.name || 'Dispositivo MIDI sin nombre', input.id));
+    });
+    midiInputSelect.disabled = false;
+    setMidiInputHandler(inputs[0]);
+    midiInputSelect.value = selectedMidiInput.id;
+    setMidiStatus(`${inputs.length} dispositivo${inputs.length === 1 ? '' : 's'} MIDI detectado${inputs.length === 1 ? '' : 's'}.`, 'success');
+}
+
+function setMidiInputHandler(input) {
+    if (selectedMidiInput && selectedMidiInput !== input) {
+        selectedMidiInput.onmidimessage = null;
+    }
+    selectedMidiInput = input;
+    if (selectedMidiInput) selectedMidiInput.onmidimessage = handleMidiMessage;
+}
+
+function handleMidiMessage(event) {
+    const [status, controller, value] = event.data;
+    const messageType = status & 0xf0;
+    if (messageType !== 0xb0) return;
+
+    const targetId = midiLearningTarget || Array.from(midiMappings.entries())
+        .find(([, mapping]) => mapping.channel === (status & 0x0f) && mapping.controller === controller)?.[0];
+
+    if (!targetId) return;
+
+    if (midiLearningTarget) {
+        midiMappings.set(targetId, { channel: status & 0x0f, controller });
+        midiLearningTarget = null;
+        midiLearnButtons.forEach((button) => button.classList.remove('is-learning'));
+        updateMidiButtonLabels();
+        setMidiStatus(`Slider vinculado al CC ${controller + 1}.`, 'success');
+    }
+
+    const slider = document.getElementById(targetId);
+    if (!slider) return;
+    const ratio = value / 127;
+    slider.value = String(Number(slider.min) + ratio * (Number(slider.max) - Number(slider.min)));
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function updateMidiButtonLabels() {
+    midiLearnButtons.forEach((button) => {
+        const mapping = midiMappings.get(button.dataset.midiTarget);
+        button.innerText = mapping ? `CC ${mapping.controller + 1}` : 'Asignar MIDI';
+    });
+}
+
+async function detectMidiDevices() {
+    if (!navigator.requestMIDIAccess) {
+        setMidiStatus('Este navegador no admite Web MIDI. Prueba con Chrome o Edge.', 'error');
+        return;
+    }
+
+    detectMidiButton.disabled = true;
+    setMidiStatus('Buscando dispositivos MIDI...');
+
+    try {
+        midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+        midiAccess.onstatechange = refreshMidiInputs;
+        refreshMidiInputs();
+    } catch (error) {
+        setMidiStatus(
+            error.name === 'SecurityError' || error.name === 'NotAllowedError'
+                ? 'El acceso MIDI fue bloqueado. Concede el permiso del navegador y vuelve a intentarlo.'
+                : 'No se pudo acceder a los dispositivos MIDI.',
+            'error'
+        );
+        console.error('Error al solicitar acceso MIDI:', error);
+    } finally {
+        detectMidiButton.disabled = false;
+    }
+}
+
 function updateSettings() {
     resValue.innerText = resolutionRange.value;
     speedValue.innerText = speedRange.value;
@@ -597,6 +703,7 @@ function updateSettings() {
         synth.envelope.attack = Number(attackRange.value);
         synth.envelope.release = Number(releaseRange.value);
     }
+
     if (filterNode) filterNode.frequency.value = Number(filterRange.value);
     if (reverbNode) reverbNode.wet.value = Number(reverbRange.value);
     if (mediaLoaded && !isPlaying) drawMedia();
@@ -637,6 +744,29 @@ attackRange.addEventListener('input', updateSettings);
 releaseRange.addEventListener('input', updateSettings);
 filterRange.addEventListener('input', updateSettings);
 reverbRange.addEventListener('input', updateSettings);
+detectMidiButton.addEventListener('click', detectMidiDevices);
+midiInputSelect.addEventListener('change', () => {
+    if (!midiAccess) return;
+    setMidiInputHandler(midiAccess.inputs.get(midiInputSelect.value) || null);
+});
+clearMidiMappingsButton.addEventListener('click', () => {
+    midiMappings.clear();
+    midiLearningTarget = null;
+    midiLearnButtons.forEach((button) => button.classList.remove('is-learning'));
+    updateMidiButtonLabels();
+    setMidiStatus('Vínculos MIDI eliminados.');
+});
+midiLearnButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+        if (!selectedMidiInput) {
+            setMidiStatus('Detecta y selecciona un dispositivo MIDI antes de asignar un slider.', 'error');
+            return;
+        }
+        midiLearningTarget = button.dataset.midiTarget;
+        midiLearnButtons.forEach((learnButton) => learnButton.classList.toggle('is-learning', learnButton === button));
+        setMidiStatus(`Mueve un control MIDI para asignarlo a ${button.dataset.midiTarget}.`);
+    });
+});
 
 document.getElementById('infoButton').addEventListener('click', () => openModal(infoModal));
 document.getElementById('closeInfoButton').addEventListener('click', () => closeModal(infoModal));
