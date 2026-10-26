@@ -74,6 +74,7 @@
                     </div>
                     <div class="scanner-download-controls">
                         <button id="downloadButton" type="button" class="rounded-xl bg-blue-500 px-3 py-2 font-bold text-white shadow-md transition hover:bg-blue-600 cursor-pointer" disabled>Descargar</button>
+                        <button id="convertButton" type="button" class="rounded-xl bg-indigo-500 px-3 py-2 font-bold text-white shadow-md transition hover:bg-indigo-600 cursor-pointer" disabled>Convertir</button>
                     </div>
                 </aside>
                 <div id="canvasContainer" class="canvas-container flex justify-center bg-gray-900 rounded-xl p-2 overflow-hidden border border-gray-300 relative w-full shadow-inner">
@@ -161,13 +162,29 @@
             </div>
             <div id="soundSettingsPanel" role="tabpanel" aria-labelledby="soundSettingsTab" class="settings-tab-panel space-y-2 mb-3 text-xs">
                 <div class="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                    <div class="col-span-2">
+                        <label class="block font-semibold mb-1 text-gray-700">Eje de escaneo:</label>
+                        <select id="scanAxis" class="w-full bg-white border border-gray-300 rounded-lg px-2 py-1 text-gray-700 outline-none focus:border-blue-500 cursor-pointer text-xs">
+                            <option value="x">Eje X</option>
+                            <option value="y">Eje Y</option>
+                            <option value="xy">Eje X + Y</option>
+                        </select>
+                    </div>
                     <div>
-                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Columnas: <span id="resValue" class="editable-value text-blue-600 cursor-text">32</span></span><button id="learnResolutionMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Columnas X: <span id="resValue" class="editable-value text-blue-600 cursor-text">32</span></span><button id="learnResolutionMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                         <input type="range" id="resolution" min="8" max="1024" value="32" step="4" class="w-full accent-blue-500 cursor-pointer">
                     </div>
                     <div>
-                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Velocidad: <span id="speedValue" class="editable-value text-blue-600 cursor-text">150</span> ms</span><button id="learnSpeedMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Filas Y: <span id="rowsValue" class="editable-value text-blue-600 cursor-text">24</span></span><button id="learnRowsMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
+                        <input type="range" id="rows" min="4" max="128" value="24" step="1" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Velocidad X: <span id="speedValue" class="editable-value text-blue-600 cursor-text">150</span> ms</span><button id="learnSpeedMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
                         <input type="range" id="speed" min="20" max="1000" value="150" step="10" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Velocidad Y: <span id="speedYValue" class="editable-value text-blue-600 cursor-text">150</span> ms</span><button id="learnSpeedYMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
+                        <input type="range" id="speedY" min="20" max="1000" value="150" step="10" class="w-full accent-blue-500 cursor-pointer">
                     </div>
                     <div class="col-span-2">
                         <label class="block font-semibold mb-1 text-gray-700">Onda:</label>

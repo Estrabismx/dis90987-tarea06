@@ -4,7 +4,9 @@ const dateDisplay = document.getElementById('dateDisplay');
 const playPauseButton = document.getElementById('playPauseButton');
 const stopButton = document.getElementById('stopButton');
 const downloadButton = document.getElementById('downloadButton');
+const convertButton = document.getElementById('convertButton');
 const freeModeToggle = document.getElementById('freeModeToggle');
+const scanAxis = document.getElementById('scanAxis');
 
 const imageInput = document.getElementById('imageInput');
 const mediaUploadZone = document.getElementById('mediaUploadZone');
@@ -15,6 +17,10 @@ const resolutionRange = document.getElementById('resolution');
 const resValue = document.getElementById('resValue');
 const speedRange = document.getElementById('speed');
 const speedValue = document.getElementById('speedValue');
+const rowsRange = document.getElementById('rows');
+const rowsValue = document.getElementById('rowsValue');
+const speedYRange = document.getElementById('speedY');
+const speedYValue = document.getElementById('speedYValue');
 const waveTypeSelect = document.getElementById('waveType');
 const attackRange = document.getElementById('attack');
 const attackValue = document.getElementById('attackValue');
@@ -39,6 +45,8 @@ const learnContrastMidi = document.getElementById('learnContrastMidi');
 const learnOpacityMidi = document.getElementById('learnOpacityMidi');
 const learnResolutionMidi = document.getElementById('learnResolutionMidi');
 const learnSpeedMidi = document.getElementById('learnSpeedMidi');
+const learnRowsMidi = document.getElementById('learnRowsMidi');
+const learnSpeedYMidi = document.getElementById('learnSpeedYMidi');
 const learnAttackMidi = document.getElementById('learnAttackMidi');
 const learnReleaseMidi = document.getElementById('learnReleaseMidi');
 const learnMinFrequencyMidi = document.getElementById('learnMinFrequencyMidi');
@@ -70,6 +78,10 @@ let mediaObjectUrl = null;
 let mediaSource = null;
 let mediaLoaded = false;
 let currentColumn = 0;
+let scanRow = 0;
+let scanColumn = 0;
+let scanNextXAt = 0;
+let scanNextYAt = 0;
 let scanTimer = null;
 let isPlaying = false;
 let synth = null;
@@ -77,6 +89,12 @@ let reverbNode = null;
 let mediaType = null;
 let audioBuffer = null;
 let audioFile = null;
+let audioPlaybackContext = null;
+let audioPlaybackSource = null;
+let audioPlaybackStartedAt = 0;
+let audioPlaybackOffset = 0;
+let audioPlaybackGain = null;
+let audioPlaybackReverb = null;
 let spectrogramImageData = null;
 let spectrogramGenerationId = 0;
 let downloadInProgress = false;
@@ -97,7 +115,9 @@ const midiSliderMap = new Map([
     [8, reverbRange],
     [9, imageBrightnessRange],
     [10, imageContrastRange],
-    [11, imageOpacityRange]
+    [11, imageOpacityRange],
+    [12, rowsRange],
+    [13, speedYRange]
 ]);
 
 let cameraStream = null;
@@ -119,7 +139,6 @@ const handInferenceInterval = 50;
 const handLostTimeout = 220;
 const clickDebounce = 350;
 const gestureHitboxScale = 1.5;
-const pianoRollRows = 24;
 const darknessThreshold = 0.45;
 
 // Water drop sound effect using Tone.js
@@ -187,7 +206,7 @@ function ensureSynth() {
     if (!synth) {
         reverbNode = new Tone.Reverb({ decay: 2, wet: Number(reverbRange.value) });
         synth = new Tone.PolySynth(Tone.Synth, {
-            maxPolyphony: pianoRollRows
+            maxPolyphony: getTotalRows()
         }).chain(reverbNode, Tone.Destination);
         synth.set({
             oscillator: { type: waveTypeSelect.value },
@@ -212,6 +231,93 @@ function updateDestinationVolume() {
 function startAudio() {
     if (typeof Tone !== 'undefined') Tone.start();
     return ensureSynth();
+}
+
+function stopAudioPlayback() {
+    if (audioPlaybackSource) {
+        audioPlaybackSource.onended = null;
+        audioPlaybackSource.stop();
+        audioPlaybackSource.disconnect();
+        audioPlaybackSource = null;
+    }
+    audioPlaybackOffset = 0;
+}
+
+async function playAudioBuffer() {
+    if (!audioBuffer) return;
+    audioPlaybackContext = audioPlaybackContext || new AudioContext();
+    await audioPlaybackContext.resume();
+    const offset = audioPlaybackOffset;
+    stopAudioPlayback();
+    const source = audioPlaybackContext.createBufferSource();
+    source.buffer = audioBuffer;
+    const output = audioPlaybackContext.createGain();
+    const volume = Number(volumeRange.value);
+    const brightness = Number(imageBrightnessRange.value) / 100;
+    const opacity = Number(imageOpacityRange.value) / 100;
+    const contrast = Number(imageContrastRange.value) / 100;
+    output.gain.setValueAtTime(0, audioPlaybackContext.currentTime);
+    output.gain.linearRampToValueAtTime(
+        Math.max(0, volume * brightness * opacity),
+        audioPlaybackContext.currentTime + Number(attackRange.value)
+    );
+    const contrastCurve = new Float32Array(2);
+    contrastCurve[0] = -Math.min(1, contrast);
+    contrastCurve[1] = Math.min(1, contrast);
+    const contrastNode = audioPlaybackContext.createWaveShaper();
+    contrastNode.curve = contrastCurve;
+    contrastNode.connect(output);
+    const reverb = createAudioReverb(audioPlaybackContext);
+    const wet = audioPlaybackContext.createGain();
+    const dry = audioPlaybackContext.createGain();
+    wet.gain.value = Number(reverbRange.value);
+    dry.gain.value = 1 - Number(reverbRange.value);
+    output.connect(dry);
+    output.connect(reverb);
+    reverb.connect(wet);
+    dry.connect(audioPlaybackContext.destination);
+    wet.connect(audioPlaybackContext.destination);
+    source.connect(contrastNode);
+    audioPlaybackOffset = Math.min(offset, Math.max(0, audioBuffer.duration - 0.01));
+    source.start(0, audioPlaybackOffset);
+    audioPlaybackStartedAt = audioPlaybackContext.currentTime - audioPlaybackOffset;
+    audioPlaybackSource = source;
+    audioPlaybackGain = output;
+    audioPlaybackReverb = reverb;
+    const releaseAt = audioPlaybackContext.currentTime + Math.max(0, audioBuffer.duration - audioPlaybackOffset - Number(releaseRange.value));
+    output.gain.setValueAtTime(Math.max(0, volume * brightness * opacity), releaseAt);
+    output.gain.linearRampToValueAtTime(0, releaseAt + Number(releaseRange.value));
+    source.onended = () => {
+        if (audioPlaybackSource !== source) return;
+        audioPlaybackSource = null;
+        audioPlaybackOffset = 0;
+        isPlaying = false;
+        playPauseButton.innerText = 'Play';
+        stopButton.disabled = false;
+    };
+}
+
+function createAudioReverb(context) {
+    const convolver = context.createConvolver();
+    const duration = 1.5;
+    const impulse = context.createBuffer(2, context.sampleRate * duration, context.sampleRate);
+    for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
+        const data = impulse.getChannelData(channel);
+        for (let index = 0; index < data.length; index += 1) {
+            data[index] = (Math.random() * 2 - 1) * Math.pow(1 - index / data.length, 2);
+        }
+    }
+    convolver.buffer = impulse;
+    return convolver;
+}
+
+function pauseAudioPlayback() {
+    if (!audioPlaybackSource || !audioPlaybackContext) return;
+    audioPlaybackOffset = audioPlaybackContext.currentTime - audioPlaybackStartedAt;
+    audioPlaybackSource.onended = null;
+    audioPlaybackSource.stop();
+    audioPlaybackSource.disconnect();
+    audioPlaybackSource = null;
 }
 
 function setMidiStatus(message, isError = false) {
@@ -595,8 +701,21 @@ function updateUploadLabel(file) {
 }
 
 function getTotalColumns() { return Number(resolutionRange.value); }
+function getTotalRows() { return Number(rowsRange.value); }
+function getScanSpeed(axis = getScanAxis()) {
+    if (axis === 'xy') return Math.min(Number(speedRange.value), Number(speedYRange.value));
+    return Number(axis === 'y' ? speedYRange.value : speedRange.value);
+}
 
-function drawMedia(highlightColumn = -1) {
+function getScanStepAxis(step) {
+    return getScanAxis();
+}
+
+function getScanStepSpeed(step) {
+    return getScanSpeed(getScanStepAxis(step));
+}
+
+function drawMedia(highlightStep = -1, axis = 'x', highlightRow = highlightStep) {
     if (!mediaLoaded || mediaType !== 'image') return;
     const width = mediaSource.naturalWidth;
     const height = mediaSource.naturalHeight;
@@ -612,14 +731,31 @@ function drawMedia(highlightColumn = -1) {
     ctx.drawImage(mediaSource, 0, 0, w, h);
     ctx.filter = 'none';
 
-    if (highlightColumn < 0) return;
+    if (highlightStep < 0) return;
     const columnWidth = w / columns;
-    const x = highlightColumn * columnWidth;
+    const rowHeight = h / getTotalRows();
+    const x = Math.min(columns - 1, Math.max(0, highlightStep)) * columnWidth;
     ctx.fillStyle = 'rgba(59, 130, 246, 0.35)';
-    ctx.fillRect(x, 0, columnWidth, h);
+    if (axis === 'y') {
+        ctx.fillRect(0, highlightStep * rowHeight, w, rowHeight);
+    } else if (axis === 'xy') {
+        const row = Math.min(getTotalRows() - 1, highlightRow);
+        ctx.fillRect(x, 0, columnWidth, h);
+        ctx.fillRect(0, row * rowHeight, w, rowHeight);
+    } else {
+        ctx.fillRect(x, 0, columnWidth, h);
+    }
     ctx.strokeStyle = '#2563eb';
     ctx.lineWidth = 2;
-    ctx.strokeRect(x, 0, columnWidth, h);
+    if (axis === 'y') {
+        ctx.strokeRect(0, highlightStep * rowHeight, w, rowHeight);
+    } else if (axis === 'xy') {
+        const row = Math.min(getTotalRows() - 1, highlightRow);
+        ctx.strokeRect(x, 0, columnWidth, h);
+        ctx.strokeRect(0, row * rowHeight, w, rowHeight);
+    } else {
+        ctx.strokeRect(x, 0, columnWidth, h);
+    }
 }
 
 function getVisualFrequencyRange() {
@@ -702,6 +838,8 @@ function updateDownloadButtons() {
     downloadButton.classList.toggle('hover:bg-blue-600', mediaType !== 'image');
     downloadButton.classList.toggle('bg-purple-500', mediaType === 'image');
     downloadButton.classList.toggle('hover:bg-purple-600', mediaType === 'image');
+    convertButton.disabled = !mediaLoaded || downloadInProgress;
+    convertButton.innerText = mediaType === 'image' ? 'Convertir a audio' : 'Convertir a imagen';
 }
 
 function downloadBlob(blob, filename) {
@@ -724,24 +862,33 @@ function downloadCanvasAsPng() {
 }
 
 function getExportFrequencies(column) {
-    return getColumnFrequencies(column);
+    return getScanFrequencies(column);
 }
 
 function renderImageAudioSamples() {
     const sampleRate = 44100;
-    const columnDuration = Number(speedRange.value) / 1000;
-    const columnCount = getTotalColumns();
-    const totalSamples = Math.ceil(columnCount * columnDuration * sampleRate);
+    const events = getScanEvents();
+    const durations = events.map((event, index) =>
+        (events[index + 1]?.time ?? event.time + event.duration) - event.time
+    );
+    const totalSamples = Math.ceil(
+        durations.reduce((total, duration) => total + duration, 0) * sampleRate
+    );
     const samples = new Float32Array(totalSamples);
     const volume = Number(volumeRange.value);
     const attackSamples = Math.max(1, Math.floor(Number(attackRange.value) * sampleRate));
     const releaseSamples = Math.max(1, Math.floor(Number(releaseRange.value) * sampleRate));
     drawMedia();
 
-    for (let column = 0; column < columnCount; column += 1) {
-        const frequencies = getExportFrequencies(column);
-        const start = Math.floor(column * columnDuration * sampleRate);
-        const end = Math.min(totalSamples, Math.floor((column + 1) * columnDuration * sampleRate));
+    for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
+        const event = events[eventIndex];
+        const frequencies = getScanFrequencies(event.column, event.row);
+        const start = Math.floor(
+            durations.slice(0, eventIndex).reduce((total, duration) => total + duration, 0) * sampleRate
+        );
+        const end = Math.min(totalSamples, Math.floor(
+            durations.slice(0, eventIndex + 1).reduce((total, duration) => total + duration, 0) * sampleRate
+        ));
         for (let index = start; index < end; index += 1) {
             const localIndex = index - start;
             const remaining = end - index;
@@ -760,6 +907,59 @@ function renderImageAudioSamples() {
         }
     }
     return { samples, sampleRate };
+}
+
+function getScanEvents() {
+    const axis = getScanAxis();
+    const events = [];
+    let column = 0;
+    let row = 0;
+    let time = 0;
+    const speedX = Number(speedRange.value) / 1000;
+    const speedY = Number(speedYRange.value) / 1000;
+
+    if (axis === 'x' || axis === 'y') {
+        const count = axis === 'x' ? getTotalColumns() : getTotalRows();
+        const duration = axis === 'x' ? speedX : speedY;
+        for (let step = 0; step < count; step += 1) {
+            events.push({
+                column: axis === 'x' ? step : 0,
+                row: axis === 'y' ? step : 0,
+                time,
+                duration
+            });
+            time += duration;
+        }
+        return events;
+    }
+
+    let nextXAt = 0;
+    let nextYAt = 0;
+    while (column < getTotalColumns() || row < getTotalRows()) {
+        const nextTime = Math.min(
+            column < getTotalColumns() ? nextXAt : Infinity,
+            row < getTotalRows() ? nextYAt : Infinity
+        );
+        time = nextTime;
+        if (column < getTotalColumns() && nextXAt === nextTime) {
+            column += 1;
+            nextXAt += speedX;
+        }
+        if (row < getTotalRows() && nextYAt === nextTime) {
+            row += 1;
+            nextYAt += speedY;
+        }
+        events.push({
+            column: Math.min(getTotalColumns() - 1, Math.max(0, column - 1)),
+            row: Math.min(getTotalRows() - 1, Math.max(0, row - 1)),
+            time,
+            duration: 0
+        });
+    }
+    for (let index = 0; index < events.length; index += 1) {
+        events[index].duration = (events[index + 1]?.time ?? time + Math.max(speedX, speedY)) - events[index].time;
+    }
+    return events;
 }
 
 async function downloadImageAsMp3() {
@@ -854,8 +1054,8 @@ async function generarEspectrogramaOffline(file) {
     renderSpectrogram();
     mediaLoaded = true;
     mediaType = 'audio';
-    playPauseButton.disabled = true;
-    stopButton.disabled = true;
+    playPauseButton.disabled = false;
+    stopButton.disabled = false;
     updateDownloadButtons();
 }
 
@@ -871,6 +1071,15 @@ function getCursorColumn() {
     return Math.max(0, Math.min(getTotalColumns() - 1, Math.floor(relativeX * getTotalColumns())));
 }
 
+function getCursorCanvasPosition() {
+    const bounds = canvas.getBoundingClientRect();
+    const pos = getActiveCursorPosition();
+    return {
+        x: Math.max(0, Math.min(1, (pos.x * window.innerWidth - bounds.left) / Math.max(1, bounds.width))),
+        y: Math.max(0, Math.min(1, (pos.y * window.innerHeight - bounds.top) / Math.max(1, bounds.height)))
+    };
+}
+
 function getColumnFrequencies(column) {
     const columns = getTotalColumns();
     const columnWidth = canvas.width / columns;
@@ -879,10 +1088,10 @@ function getColumnFrequencies(column) {
     const minFrequency = Number(minFrequencyRange.value);
     const maxFrequency = Math.max(minFrequency, Number(maxFrequencyRange.value));
     const frequencies = [];
-    const rowHeight = canvas.height / pianoRollRows;
+    const rowHeight = canvas.height / getTotalRows();
     const pixels = ctx.getImageData(startX, 0, endX - startX, canvas.height).data;
 
-    for (let row = 0; row < pianoRollRows; row += 1) {
+    for (let row = 0; row < getTotalRows(); row += 1) {
         const startY = Math.floor(row * rowHeight);
         const endY = Math.max(startY + 1, Math.floor((row + 1) * rowHeight));
         let brightnessTotal = 0;
@@ -898,7 +1107,7 @@ function getColumnFrequencies(column) {
 
         const brightness = brightnessTotal / pixelCount;
         if (brightness <= darknessThreshold) {
-            const verticalPosition = row / (pianoRollRows - 1);
+            const verticalPosition = row / Math.max(1, getTotalRows() - 1);
             frequencies.push(maxFrequency * Math.pow(minFrequency / maxFrequency, verticalPosition));
         }
     }
@@ -906,49 +1115,197 @@ function getColumnFrequencies(column) {
     return frequencies;
 }
 
+function getRowFrequencies(row) {
+    const rowHeight = canvas.height / getTotalRows();
+    const startY = Math.floor(row * rowHeight);
+    const endY = Math.max(startY + 1, Math.floor((row + 1) * rowHeight));
+    const frequencies = [];
+    const columnWidth = canvas.width / getTotalColumns();
+    const pixels = ctx.getImageData(0, startY, canvas.width, endY - startY).data;
+    for (let column = 0; column < getTotalColumns(); column += 1) {
+        const startX = Math.floor(column * columnWidth);
+        const endX = Math.max(startX + 1, Math.floor((column + 1) * columnWidth));
+        let brightnessTotal = 0;
+        let pixelCount = 0;
+        for (let y = 0; y < endY - startY; y += 1) {
+            for (let x = startX; x < endX; x += 1) {
+                const pixelIndex = (y * canvas.width + x) * 4;
+                brightnessTotal += (pixels[pixelIndex] + pixels[pixelIndex + 1] + pixels[pixelIndex + 2]) / (3 * 255);
+                pixelCount += 1;
+            }
+        }
+        if (brightnessTotal / pixelCount <= darknessThreshold) {
+            const verticalPosition = column / Math.max(1, getTotalColumns() - 1);
+            frequencies.push(
+                Number(maxFrequencyRange.value) *
+                Math.pow(Number(minFrequencyRange.value) / Number(maxFrequencyRange.value), verticalPosition)
+            );
+        }
+    }
+    return frequencies;
+}
+
+async function generateSpectrogramFromSamples(samples, sampleRate) {
+    const width = 1024;
+    const height = 576;
+    const fftSize = 2048;
+    const imageData = ctx.createImageData(width, height);
+    const minDb = -80;
+    const maxDb = -10;
+    for (let x = 0; x < width; x += 1) {
+        const center = Math.floor((x / Math.max(1, width - 1)) * Math.max(0, samples.length - 1));
+        const window = new Float32Array(fftSize);
+        for (let i = 0; i < fftSize; i += 1) {
+            const index = center - Math.floor(fftSize / 2) + i;
+            if (index >= 0 && index < samples.length) {
+                window[i] = samples[index] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (fftSize - 1)));
+            }
+        }
+        const magnitudes = performFft(window);
+        for (let y = 0; y < height; y += 1) {
+            const frequency = getVisualFrequencyRange().maxFrequency *
+                Math.pow(getVisualFrequencyRange().minFrequency / getVisualFrequencyRange().maxFrequency,
+                    y / Math.max(1, height - 1));
+            const bin = Math.max(0, Math.min(magnitudes.length - 1,
+                Math.round(frequency * fftSize / sampleRate)));
+            const db = 20 * Math.log10(Math.max(magnitudes[bin], 1e-8));
+            const color = getPaletteColor((db - minDb) / (maxDb - minDb));
+            const offset = (y * width + x) * 4;
+            imageData.data[offset] = color[0];
+            imageData.data[offset + 1] = color[1];
+            imageData.data[offset + 2] = color[2];
+            imageData.data[offset + 3] = 255;
+        }
+        if (x % 16 === 0) {
+            spectrogramImageData = imageData;
+            renderSpectrogram();
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+    }
+    spectrogramImageData = imageData;
+    renderSpectrogram();
+}
+
+function getScanAxis() {
+    return scanAxis.value;
+}
+
+function getScanStepCount() {
+    if (getScanAxis() === 'y') return getTotalRows();
+    if (getScanAxis() === 'xy') return Math.max(getTotalColumns(), getTotalRows());
+    return getTotalColumns();
+}
+
+function getScanFrequencies(step, rowStep = step) {
+    if (getScanAxis() === 'x') return getColumnFrequencies(step);
+    if (getScanAxis() === 'y') return getRowFrequencies(step);
+    return [
+        getColumnFrequencies(Math.min(getTotalColumns() - 1, step)),
+        getRowFrequencies(Math.min(getTotalRows() - 1, rowStep))
+    ].flat();
+}
+
 function scanNextColumn() {
     if (!isPlaying || !mediaLoaded) return;
-    if (currentColumn >= getTotalColumns()) {
+    const axis = getScanAxis();
+    const now = performance.now();
+    let shouldAdvanceX = false;
+    let shouldAdvanceY = false;
+    if (axis === 'xy') {
+        shouldAdvanceX = now >= scanNextXAt && scanColumn < getTotalColumns();
+        shouldAdvanceY = now >= scanNextYAt && scanRow < getTotalRows();
+        if (shouldAdvanceX) scanNextXAt = now + Number(speedRange.value);
+        if (shouldAdvanceY) scanNextYAt = now + Number(speedYRange.value);
+    } else if (currentColumn >= getScanStepCount()) {
         stopScanning();
         return;
+    } else if (axis === 'x') {
+        shouldAdvanceX = true;
+    } else {
+        shouldAdvanceY = true;
     }
-    drawMedia();
-    const frequencies = getColumnFrequencies(currentColumn);
+    if (axis === 'xy' && !shouldAdvanceX && !shouldAdvanceY) {
+        scanTimer = setTimeout(scanNextColumn, Math.max(1, Math.min(
+            scanNextXAt - now, scanNextYAt - now
+        )));
+        return;
+    }
+    if (shouldAdvanceX) scanColumn = Math.min(getTotalColumns() - 1, scanColumn + (scanColumn === 0 ? 0 : 1));
+    if (shouldAdvanceY) scanRow = Math.min(getTotalRows() - 1, scanRow + (scanRow === 0 ? 0 : 1));
+    const column = axis === 'y' ? 0 : currentColumn;
+    const row = axis === 'x' ? 0 : currentColumn;
+    const frequencies = getScanFrequencies(
+        axis === 'xy' ? scanColumn : column,
+        axis === 'xy' ? scanRow : row
+    );
     const s = startAudio();
     if (s && frequencies.length) {
-        s.triggerAttackRelease(frequencies, Number(speedRange.value) / 1000 * 0.9);
+        s.triggerAttackRelease(frequencies, getScanSpeed(axis === 'y' ? 'y' : 'x') / 1000 * 0.9);
     }
-    drawMedia(currentColumn);
+    drawMedia(axis === 'xy' ? scanColumn : currentColumn, axis, axis === 'xy' ? scanRow : row);
     currentColumn += 1;
-    scanTimer = setTimeout(scanNextColumn, Number(speedRange.value));
+    if (axis === 'xy') {
+        if (scanColumn >= getTotalColumns() - 1 && scanRow >= getTotalRows() - 1) {
+            stopScanning();
+            return;
+        }
+        scanTimer = setTimeout(scanNextColumn, 1);
+    } else {
+        scanTimer = setTimeout(scanNextColumn, getScanSpeed(axis));
+    }
 }
 
 function scanFreeColumn() {
     if (!isPlaying || !mediaLoaded) return;
-    const col = getCursorColumn();
-    if (col !== freeScanLastColumn) {
-        drawMedia();
-        const frequencies = getColumnFrequencies(col);
+    const cursorPosition = getCursorCanvasPosition();
+    const column = Math.max(0, Math.min(
+        getTotalColumns() - 1, Math.floor(cursorPosition.x * getTotalColumns())
+    ));
+    const row = Math.max(0, Math.min(
+        getTotalRows() - 1, Math.floor(cursorPosition.y * getTotalRows())
+    ));
+    const step = getScanAxis() === 'y' ? row : column;
+    const positionKey = `${column}:${row}:${getScanAxis()}`;
+    drawMedia(
+        getScanAxis() === 'y' ? cursorPosition.y * getTotalRows() : column,
+        getScanAxis(),
+        cursorPosition.y * getTotalRows()
+    );
+    if (positionKey !== freeScanLastColumn) {
+        const frequencies = getScanFrequencies(column, row);
         const s = startAudio();
-        if (s && frequencies.length) s.triggerAttackRelease(frequencies, 0.08);
-        drawMedia(col);
-        freeScanLastColumn = col;
+        if (s && frequencies.length) s.triggerAttackRelease(frequencies, getScanStepSpeed(step) / 1000 * 0.9);
+        freeScanLastColumn = positionKey;
     }
-    scanTimer = setTimeout(scanFreeColumn, 40);
+    scanTimer = setTimeout(scanFreeColumn, getScanStepSpeed(step));
 }
 
 function startScanning() {
     if (!mediaLoaded || isPlaying) return;
+    if (mediaType === 'audio') {
+        isPlaying = true;
+        playPauseButton.innerText = 'Pause';
+        stopButton.disabled = false;
+        playAudioBuffer();
+        return;
+    }
     startAudio();
     isPlaying = true;
     playPauseButton.innerText = 'Pause';
     stopButton.disabled = false;
     freeScanLastColumn = -1;
+    currentColumn = 0;
+    scanColumn = 0;
+    scanRow = 0;
+    const now = performance.now();
+    scanNextXAt = now;
+    scanNextYAt = now;
     if (freeModeToggle.checked) scanFreeColumn();
     else scanNextColumn();
 }
 
 function pauseScanning() {
+    if (mediaType === 'audio') pauseAudioPlayback();
     isPlaying = false;
     clearTimeout(scanTimer);
     scanTimer = null;
@@ -957,10 +1314,54 @@ function pauseScanning() {
 
 function stopScanning() {
     pauseScanning();
+    if (mediaType === 'audio') audioPlaybackOffset = 0;
     currentColumn = 0;
     freeScanLastColumn = -1;
     stopButton.disabled = !mediaLoaded;
     if (mediaLoaded && mediaType === 'image') drawMedia();
+}
+
+function createAudioBufferFromSamples(samples, sampleRate) {
+    audioPlaybackContext = audioPlaybackContext || new AudioContext();
+    const buffer = audioPlaybackContext.createBuffer(1, samples.length, sampleRate);
+    buffer.copyToChannel(samples, 0);
+    return buffer;
+}
+
+async function convertMedia() {
+    if (!mediaLoaded || downloadInProgress) return;
+    stopScanning();
+    downloadInProgress = true;
+    updateDownloadButtons();
+    try {
+        if (mediaType === 'image') {
+            const { samples, sampleRate } = renderImageAudioSamples();
+            audioBuffer = createAudioBufferFromSamples(samples, sampleRate);
+            audioFile = null;
+            mediaSource = null;
+            mediaType = 'audio';
+            await generateSpectrogramFromSamples(samples, sampleRate);
+            currentColumn = 0;
+        } else {
+            const image = new Image();
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = reject;
+                image.src = canvas.toDataURL('image/png');
+            });
+            mediaSource = image;
+            mediaType = 'image';
+            audioFile = null;
+            spectrogramImageData = null;
+            drawMedia();
+            currentColumn = 0;
+        }
+    } finally {
+        downloadInProgress = false;
+        playPauseButton.disabled = false;
+        stopButton.disabled = false;
+        updateDownloadButtons();
+    }
 }
 
 async function handleMediaSelection(event) {
@@ -974,12 +1375,13 @@ async function handleMediaSelection(event) {
     mediaType = null;
     audioBuffer = null;
     audioFile = null;
+    audioPlaybackOffset = 0;
     spectrogramImageData = null;
 
     if (isAudioFile(file)) {
         audioFile = file;
-        playPauseButton.disabled = true;
-        stopButton.disabled = true;
+        playPauseButton.disabled = false;
+        stopButton.disabled = false;
         updateDownloadButtons();
         try {
             await generarEspectrogramaOffline(file);
@@ -1011,7 +1413,9 @@ async function handleMediaSelection(event) {
 
 function updateSettings() {
     resValue.innerText = resolutionRange.value;
+    rowsValue.innerText = rowsRange.value;
     speedValue.innerText = speedRange.value;
+    speedYValue.innerText = speedYRange.value;
     attackValue.innerText = `${attackRange.value}s`;
     releaseValue.innerText = `${releaseRange.value}s`;
     minFrequencyValue.innerText = `${minFrequencyRange.value}Hz`;
@@ -1048,6 +1452,7 @@ downloadButton.addEventListener('click', () => {
     if (mediaType === 'image') downloadImageAsMp3();
     else downloadCanvasAsPng();
 });
+convertButton.addEventListener('click', convertMedia);
 freeModeToggle.addEventListener('change', () => {
     if (!isPlaying) return;
     pauseScanning();
@@ -1056,6 +1461,8 @@ freeModeToggle.addEventListener('change', () => {
 
 resolutionRange.addEventListener('input', updateSettings);
 speedRange.addEventListener('input', updateSettings);
+rowsRange.addEventListener('input', updateSettings);
+speedYRange.addEventListener('input', updateSettings);
 waveTypeSelect.addEventListener('change', updateSettings);
 attackRange.addEventListener('input', updateSettings);
 releaseRange.addEventListener('input', updateSettings);
@@ -1066,6 +1473,11 @@ reverbRange.addEventListener('input', updateSettings);
 imageBrightnessRange.addEventListener('input', updateSettings);
 imageContrastRange.addEventListener('input', updateSettings);
 imageOpacityRange.addEventListener('input', updateSettings);
+scanAxis.addEventListener('change', () => {
+    const wasPlaying = isPlaying;
+    stopScanning();
+    if (wasPlaying) startScanning();
+});
 midiToggleButton.addEventListener('click', toggleMidi);
 midiInputSelect.addEventListener('change', connectMidiInput);
 learnBrightnessMidi.addEventListener('click', () => startMidiLearn(imageBrightnessRange, learnBrightnessMidi));
@@ -1073,6 +1485,8 @@ learnContrastMidi.addEventListener('click', () => startMidiLearn(imageContrastRa
 learnOpacityMidi.addEventListener('click', () => startMidiLearn(imageOpacityRange, learnOpacityMidi));
 learnResolutionMidi.addEventListener('click', () => startMidiLearn(resolutionRange, learnResolutionMidi));
 learnSpeedMidi.addEventListener('click', () => startMidiLearn(speedRange, learnSpeedMidi));
+learnRowsMidi.addEventListener('click', () => startMidiLearn(rowsRange, learnRowsMidi));
+learnSpeedYMidi.addEventListener('click', () => startMidiLearn(speedYRange, learnSpeedYMidi));
 learnAttackMidi.addEventListener('click', () => startMidiLearn(attackRange, learnAttackMidi));
 learnReleaseMidi.addEventListener('click', () => startMidiLearn(releaseRange, learnReleaseMidi));
 learnMinFrequencyMidi.addEventListener('click', () => startMidiLearn(minFrequencyRange, learnMinFrequencyMidi));
@@ -1080,7 +1494,9 @@ learnMaxFrequencyMidi.addEventListener('click', () => startMidiLearn(maxFrequenc
 learnVolumeMidi.addEventListener('click', () => startMidiLearn(volumeRange, learnVolumeMidi));
 learnReverbMidi.addEventListener('click', () => startMidiLearn(reverbRange, learnReverbMidi));
 makeValueEditable(resValue, resolutionRange);
+makeValueEditable(rowsValue, rowsRange);
 makeValueEditable(speedValue, speedRange);
+makeValueEditable(speedYValue, speedYRange);
 makeValueEditable(attackValue, attackRange);
 makeValueEditable(releaseValue, releaseRange);
 makeValueEditable(minFrequencyValue, minFrequencyRange);
