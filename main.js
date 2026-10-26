@@ -1,8 +1,9 @@
 const appTitleHeader = document.getElementById('appTitleHeader');
+const clockDisplay = document.getElementById('clockDisplay');
+const dateDisplay = document.getElementById('dateDisplay');
 const playPauseButton = document.getElementById('playPauseButton');
 const stopButton = document.getElementById('stopButton');
-const downloadPngButton = document.getElementById('downloadPngButton');
-const downloadMp3Button = document.getElementById('downloadMp3Button');
+const downloadButton = document.getElementById('downloadButton');
 const freeModeToggle = document.getElementById('freeModeToggle');
 
 const imageInput = document.getElementById('imageInput');
@@ -60,7 +61,6 @@ const settingsWindow = document.getElementById('settingsWindow');
 const settingsHeader = document.getElementById('settingsHeader');
 
 const toggleCameraActiveButton = document.getElementById('toggleCameraActiveButton');
-const stopCameraButton = document.getElementById('stopCameraButton');
 const cameraSelect = document.getElementById('cameraSelect');
 const cameraStatus = document.getElementById('cameraStatus');
 const cameraVideo = document.getElementById('cameraVideo');
@@ -118,6 +118,7 @@ const lidCursor = document.getElementById('lidCursor');
 const handInferenceInterval = 50;
 const handLostTimeout = 220;
 const clickDebounce = 350;
+const gestureHitboxScale = 1.5;
 const pianoRollRows = 24;
 const darknessThreshold = 0.45;
 
@@ -419,7 +420,6 @@ async function startCamera() {
         document.body.classList.add('camera-mode-active');
         toggleCameraActiveButton.innerText = 'Cámara Activa';
         toggleCameraActiveButton.classList.replace('bg-emerald-500', 'bg-blue-600');
-        stopCameraButton.disabled = false;
         refreshCameraList();
         await handPromise;
         setCameraStatus('Seguimiento activo. Usa la mano abierta para mover y ciérrala para hacer clic.');
@@ -438,9 +438,10 @@ function stopCamera() {
     if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
     cameraStream = null;
     cameraVideo.srcObject = null;
+    smoothedGesturePosition = null;
+    handWasOpen = false;
     toggleCameraActiveButton.innerText = 'Iniciar Cámara';
     toggleCameraActiveButton.classList.replace('bg-blue-600', 'bg-emerald-500');
-    stopCameraButton.disabled = true;
     lidCursor.style.opacity = '1';
     setCameraStatus('Cámara detenida.');
 }
@@ -461,11 +462,41 @@ function updateGestureCursor(x, y) {
 }
 
 function getInteractiveTarget(x, y) {
-    const element = document.elementFromPoint(
-        Math.max(0, Math.min(window.innerWidth - 1, x * window.innerWidth)),
-        Math.max(0, Math.min(window.innerHeight - 1, y * window.innerHeight))
-    );
-    return element?.closest('button, [role="button"], a, select, input, label') || null;
+    const screenX = Math.max(0, Math.min(window.innerWidth - 1, x * window.innerWidth));
+    const screenY = Math.max(0, Math.min(window.innerHeight - 1, y * window.innerHeight));
+    const interactiveElements = [...document.querySelectorAll(
+        'button, [role="button"], a, select, input, label'
+    )];
+    const candidates = interactiveElements
+        .map((element, index) => {
+            const bounds = element.getBoundingClientRect();
+            const styles = getComputedStyle(element);
+            const widthIncrease = bounds.width * (gestureHitboxScale - 1) / 2;
+            const heightIncrease = bounds.height * (gestureHitboxScale - 1) / 2;
+            return {
+                element,
+                index,
+                visible: element.getClientRects().length > 0 &&
+                    styles.display !== 'none' &&
+                    styles.visibility !== 'hidden' &&
+                    styles.pointerEvents !== 'none' &&
+                    !element.matches(':disabled'),
+                priority: Number(element.dataset.mediapipePriority || 0),
+                left: bounds.left - widthIncrease,
+                right: bounds.right + widthIncrease,
+                top: bounds.top - heightIncrease,
+                bottom: bounds.bottom + heightIncrease,
+                area: bounds.width * bounds.height
+            };
+        })
+        .filter((candidate) => candidate.visible && candidate.area > 0 &&
+            screenX >= candidate.left && screenX <= candidate.right &&
+            screenY >= candidate.top && screenY <= candidate.bottom)
+        .sort((first, second) =>
+            second.priority - first.priority || first.area - second.area || first.index - second.index
+        );
+
+    return candidates[0]?.element || null;
 }
 
 function clickWithClosedHand(x, y, isClosed) {
@@ -665,8 +696,12 @@ function renderSpectrogram() {
 }
 
 function updateDownloadButtons() {
-    downloadPngButton.disabled = !mediaLoaded;
-    downloadMp3Button.disabled = mediaType !== 'image' || downloadInProgress;
+    downloadButton.disabled = !mediaLoaded || downloadInProgress;
+    downloadButton.innerText = mediaType === 'image' ? 'Descargar MP3' : 'Descargar PNG';
+    downloadButton.classList.toggle('bg-blue-500', mediaType !== 'image');
+    downloadButton.classList.toggle('hover:bg-blue-600', mediaType !== 'image');
+    downloadButton.classList.toggle('bg-purple-500', mediaType === 'image');
+    downloadButton.classList.toggle('hover:bg-purple-600', mediaType === 'image');
 }
 
 function downloadBlob(blob, filename) {
@@ -1009,8 +1044,10 @@ function updateSettings() {
 playPauseButton.addEventListener('click', () => (isPlaying ? pauseScanning() : startScanning()));
 stopButton.addEventListener('click', stopScanning);
 imageInput.addEventListener('change', handleMediaSelection);
-downloadPngButton.addEventListener('click', downloadCanvasAsPng);
-downloadMp3Button.addEventListener('click', downloadImageAsMp3);
+downloadButton.addEventListener('click', () => {
+    if (mediaType === 'image') downloadImageAsMp3();
+    else downloadCanvasAsPng();
+});
 freeModeToggle.addEventListener('change', () => {
     if (!isPlaying) return;
     pauseScanning();
@@ -1077,8 +1114,14 @@ toggleCameraActiveButton.addEventListener('click', async () => {
     if (!cameraModeActive) await startCamera();
     else stopCamera();
 });
-stopCameraButton.addEventListener('click', stopCamera);
 cameraSelect.addEventListener('change', () => { if (cameraModeActive) startCamera(); });
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && cameraModeActive) {
+        event.preventDefault();
+        stopCamera();
+    }
+});
 
 document.getElementById('messageBoardButton').addEventListener('click', () => openModal(messageBoardModal));
 document.getElementById('messageBoardConfirmButton').addEventListener('click', () => closeModal(messageBoardModal));
@@ -1108,9 +1151,9 @@ function updateClock() {
     const now = new Date();
     const hours = now.getHours().toString().padStart(2, '0');
     const minutes = now.getMinutes().toString().padStart(2, '0');
-    document.getElementById('clockDisplay').innerText = `${hours}:${minutes}`;
+    clockDisplay.innerText = `${hours}:${minutes}`;
     const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    document.getElementById('dateDisplay').innerText = `${days[now.getDay()]} ${now.getDate()}/${now.getMonth() + 1}`;
+    dateDisplay.innerText = `${days[now.getDay()]} ${now.getDate()}/${now.getMonth() + 1}`;
 }
 
 updateSettings();

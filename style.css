@@ -100,8 +100,9 @@ body.camera-mode-active .lid-cursor {
     gap: 1rem;
 }
 
-.footer-controls {
+.footer-bar .footer-controls {
     min-width: 0;
+    gap: 2.5rem;
 }
 
 .footer-controls > button,
@@ -138,8 +139,8 @@ body.camera-mode-active .lid-cursor {
         border-width: 3px;
     }
 
-    .footer-controls {
-        gap: 0.35rem;
+    .footer-bar .footer-controls {
+        gap: 1.75rem;
     }
 
     #messageBoardButton > div {
@@ -207,6 +208,10 @@ body.camera-mode-active .lid-cursor {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .footer-bar .footer-controls {
+        gap: 1.5rem;
     }
 }
 
