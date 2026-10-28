@@ -4,15 +4,50 @@ html {
     overflow-x: hidden;
 }
 
+/* Fondo: fondo.jpg (1600x893) cortado en piezas para no agrandarlo nunca (se vería borroso).
+   - fondo-izq.jpg y fondo-der.jpg son sus dos mitades, ancladas abajo a cada lado de la pantalla.
+   - Si la pantalla es más ancha, el centro se rellena repitiendo la columna central (fondo-centro.jpg).
+   - Si es más alta, arriba se repiten las líneas de la franja superior (fondo-banda-*.jpg).
+   --fondo-px es lo que mide en pantalla un píxel de fondo.jpg: como máximo 1px (tamaño real);
+   en pantallas más chicas la imagen se achica para cubrirlas. Los botones del pie usan esta misma medida. */
+:root {
+    --fondo-px: min(1px, max(calc(100vw / 1600), calc(100vh / 893)));
+    /* Espacio reservado para el pie: desde justo sobre los botones (y = 695) hasta abajo. */
+    --footer-height: calc(198 * var(--fondo-px));
+}
+
+/* Pantallas verticales (celulares): la barra se ajusta al ancho y queda abajo. */
+@media (max-aspect-ratio: 1/1) {
+    :root {
+        --fondo-px: min(1px, calc(100vw / 1600));
+    }
+}
+
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #ededed;
-    background-image: linear-gradient(0deg, transparent 50%, rgba(255, 255, 255, 0.6) 50%);
-    background-size: 100% 4px;
+    background-color: #f1f1f1;
     overflow-x: hidden;
     min-height: 100dvh;
     margin: 0;
+    padding-bottom: var(--footer-height);
     user-select: none;
+}
+
+/* El fondo va en una capa fija para que la barra dibujada quede siempre bajo los botones del pie. */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+        url("assets/fondo-izq.jpg") left bottom / calc(800 * var(--fondo-px)) auto no-repeat,
+        url("assets/fondo-der.jpg") right bottom / calc(800 * var(--fondo-px)) auto no-repeat,
+        url("assets/fondo-centro.jpg") center bottom / var(--fondo-px) calc(893 * var(--fondo-px)) repeat-x,
+        url("assets/fondo-banda-izq.jpg") left bottom calc(893 * var(--fondo-px)) / calc(800 * var(--fondo-px)) auto repeat-y,
+        url("assets/fondo-banda-der.jpg") right bottom calc(893 * var(--fondo-px)) / calc(800 * var(--fondo-px)) auto repeat-y,
+        url("assets/fondo-banda-centro.jpg") center bottom calc(893 * var(--fondo-px)) / var(--fondo-px) calc(96 * var(--fondo-px)) repeat,
+        #f0f0f0;
+    pointer-events: none;
 }
 
 *,
@@ -21,6 +56,8 @@ body {
     box-sizing: border-box;
 }
 
+/* El cursor del sistema solo se oculta si el JS cargó (clase custom-cursor) y el dispositivo usa mouse.
+   En celulares y tablets se mantiene el comportamiento normal. */
 @media (hover: hover) and (pointer: fine) {
     body.custom-cursor,
     body.custom-cursor * {
@@ -42,74 +79,199 @@ body {
     pointer-events: none;
 }
 
+/* Cursor LID: mano abierta normalmente y puño mientras se presiona (mouse o mano cerrada en MediaPipe).
+   El translate deja la punta del dedo justo en la posición del cursor. */
 .lid-cursor {
     display: none;
     pointer-events: none !important;
     position: fixed;
     width: 48px;
     height: 48px;
-    background-image: url("assets/475059460717368585-Photoroom.png");
+    background-image: url("assets/cursor-mano-normal.png");
     background-repeat: no-repeat;
     background-size: contain;
     z-index: 99999;
-    transform: translate(-15%, -10%);
+    transform: translate(-35%, -1%);
     opacity: 1;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
 }
 
+body.cursor-pressed .lid-cursor {
+    background-image: url("assets/cursor-mano-presionar.png");
+}
+
 body.camera-mode-active .lid-cursor {
     display: block;
-    background-image: url("assets/Gemini_Generated_Image_yk8vfayk8vfayk8v-Photoroom.jpg");
 }
 
-/* BOTÓN WII REAL: Contenedor limpio que evita deformaciones de la imagen */
-.wii-pill-btn {
+/* Botón estilo Wii (estilo-boton-estandar.png sin el marco blanco).
+   La imagen va en ::before con border-image para que los extremos redondos no se deformen
+   al cambiar el ancho del botón, y el contraste extra solo afecta a la imagen, no al texto. */
+.wii-btn {
+    --wii-cap: 1.375rem;
     position: relative;
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    cursor: pointer;
-    width: 100%;
-    height: 48px;
-    transition: transform 0.15s ease, filter 0.15s ease;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: calc(var(--wii-cap) * 2);
+    padding: 0 1.25rem;
+    border: 0;
+    background: transparent;
+    color: #ffffff;
+    font-weight: 800;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(15, 23, 80, 0.95), 0 0 6px rgba(15, 23, 80, 0.5);
+    transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
 }
 
-.wii-pill-btn img.btn-bg {
+.wii-btn::before {
+    content: "";
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: fill;
-    pointer-events: none;
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
+    z-index: -1;
+    border-style: solid;
+    border-color: transparent;
+    border-width: 0 var(--wii-cap);
+    border-image: url("assets/boton-estandar-sin-marco.png") 0 118 fill / 0 var(--wii-cap) / 0 stretch;
+    filter: contrast(1.35) saturate(1.25) drop-shadow(0 3px 4px rgba(30, 58, 138, 0.35));
 }
 
-.wii-pill-btn span, .wii-pill-btn div {
-    position: relative;
-    z-index: 2;
-    color: #ffffff !important;
-    font-weight: 800 !important;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+.wii-btn-compact {
+    --wii-cap: 1.25rem;
+    padding: 0 1rem;
 }
 
-.wii-pill-btn:hover:not(:disabled) {
-    filter: brightness(1.1);
-    transform: scale(1.02);
+.wii-btn .wii-btn-tag {
+    text-shadow: none;
 }
 
-.wii-pill-btn:active:not(:disabled) {
-    transform: scale(0.98);
+button.wii-btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: scale(1.03);
 }
 
-.wii-pill-btn:disabled {
-    opacity: 0.5;
+button.wii-btn:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+button.wii-btn:disabled {
+    opacity: 0.55;
+    filter: grayscale(0.35);
     cursor: not-allowed;
-    filter: grayscale(0.3);
 }
 
+/* Pie de página: los botones se ubican sobre los dibujos de fondo.jpg. */
+#appFooter {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--footer-height);
+    z-index: 20;
+    pointer-events: none;
+}
+
+#appFooter > * {
+    pointer-events: auto;
+}
+
+/* Los botones siguen a la mitad de la barra en que están dibujados:
+   .fondo-left se mide desde el borde izquierdo, .fondo-right desde el derecho y el resto desde el centro. */
+.fondo-spot,
+.fondo-date {
+    position: absolute;
+    left: calc(50% + (var(--x) - 800) * var(--fondo-px));
+    bottom: calc((893 - var(--y)) * var(--fondo-px));
+    transform: translate(-50%, 50%);
+}
+
+.fondo-left {
+    left: calc(var(--x) * var(--fondo-px));
+}
+
+.fondo-right {
+    left: calc(100% - (1600 - var(--x)) * var(--fondo-px));
+}
+
+.fondo-spot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(var(--d) * var(--fondo-px));
+    height: calc(var(--d) * var(--fondo-px));
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.fondo-spot:hover {
+    transform: translate(-50%, 50%) scale(1.05);
+}
+
+.fondo-spot:active {
+    transform: translate(-50%, 50%) scale(0.95);
+}
+
+/* Botones redondos estilo Wii que van dentro de los huecos de la barra (LID a la izquierda, sobre a la derecha). */
+.fondo-round-button {
+    background: linear-gradient(to bottom, #ffffff, #e5e7eb);
+    border: calc(5 * var(--fondo-px)) solid #60a5fa;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.9);
+    color: #2563eb;
+}
+
+.fondo-round-button:hover,
+.fondo-round-button:focus-visible {
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.5), 0 0 18px rgba(56, 189, 248, 0.6);
+    outline: none;
+}
+
+.fondo-round-button span {
+    font-weight: 800;
+    font-size: calc(38 * var(--fondo-px));
+    letter-spacing: -0.03em;
+}
+
+.fondo-round-button svg {
+    width: 45%;
+    height: 45%;
+}
+
+.fondo-date {
+    color: #8b9099;
+    font-weight: 800;
+    font-size: clamp(0.75rem, calc(30 * var(--fondo-px)), 2rem);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.settings-footer-button {
+    background: url("assets/boton-configuracion.png") center / contain no-repeat;
+}
+
+.settings-footer-button:hover {
+    filter: brightness(1.08) drop-shadow(0 0 8px rgba(56, 189, 248, 0.6));
+}
+
+.camera-footer-button {
+    background: linear-gradient(to bottom, #d1fae5, #ffffff);
+    border: calc(5 * var(--fondo-px)) solid #34d399;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.camera-footer-button span {
+    max-width: 80%;
+    color: #059669;
+    font-weight: 800;
+    font-size: calc(16 * var(--fondo-px));
+    line-height: 1.05;
+    text-align: center;
+}
+
+/* Sin archivo la ventana llena el espacio entre el encabezado y el pie.
+   Con imagen o espectrograma se encoge alrededor de ella (el tamaño lo calcula main.js). */
 .scanner-app-view {
     min-height: 0;
 }
@@ -119,6 +281,7 @@ body.camera-mode-active .lid-cursor {
     align-self: center;
 }
 
+/* El texto del título se acomoda al ancho de la ventana en vez de estirarla. */
 .scanner-title-bar {
     width: 0;
     min-width: 100%;
@@ -126,7 +289,7 @@ body.camera-mode-active .lid-cursor {
 
 .scanner-workspace {
     display: grid;
-    grid-template-columns: 14rem minmax(0, 1fr);
+    grid-template-columns: 13rem minmax(0, 1fr);
     gap: 1rem;
     min-height: 0;
     flex: 1;
@@ -160,20 +323,6 @@ body.camera-mode-active .lid-cursor {
     white-space: nowrap;
 }
 
-.footer-bar {
-    gap: 1rem;
-}
-
-.footer-bar .footer-controls {
-    min-width: 0;
-    gap: 2.5rem;
-}
-
-.footer-controls > button,
-#footerHomeButton {
-    flex-shrink: 1;
-}
-
 .canvas-container #canvas.free-mode-canvas {
     touch-action: none;
 }
@@ -182,6 +331,7 @@ body.camera-mode-active .lid-cursor {
     min-height: 0;
 }
 
+/* Sin archivo el recuadro ocupa todo el espacio; con imagen o espectrograma se ajusta a su tamaño. */
 .canvas-container.has-media {
     width: fit-content;
     max-width: 100%;
@@ -197,28 +347,6 @@ body.camera-mode-active .lid-cursor {
 @media (max-width: 640px) {
     .scanner-app-view.has-media {
         width: 100%;
-    }
-
-    .footer-bar {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-        gap: 0.5rem;
-    }
-
-    #footerHomeButton,
-    .footer-controls > button {
-        width: 3.5rem;
-        height: 3.5rem;
-        border-width: 3px;
-    }
-
-    .footer-bar .footer-controls {
-        gap: 1.75rem;
-    }
-
-    #messageBoardButton > div {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
     }
 
     .scanner-workspace {
@@ -243,6 +371,41 @@ body.camera-mode-active .lid-cursor {
     }
 }
 
+/* Pantallas bajas (por ejemplo notebooks de 1366x768): todo se compacta para que quepa sin scroll. */
+@media (max-height: 820px) and (min-width: 641px) {
+    #appHeader {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    #scannerAppView {
+        padding: 0.75rem;
+    }
+
+    #scannerTitleBar {
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .scanner-controls {
+        gap: 0.5rem;
+    }
+
+    #mediaUploadZone {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
+
+    .scanner-playback-controls {
+        flex-direction: row;
+    }
+
+    .scanner-playback-controls > button {
+        flex: 1;
+    }
+}
+
+/* Resizable and Movable Settings Window */
 .settings-modal {
     pointer-events: none;
 }
