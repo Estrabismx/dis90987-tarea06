@@ -33,3 +33,6 @@ poner cap de la pagina web:)
 ![panel-configuraciones](./imagen.png)
 
 **4. Reflexión**  
+
+en el mundo digital tanto el sonido como las imágenes tienen la misma materia orima que es el bit como se organiza varia por lo mismo si esta hecho de lo mismo partícula inicial misma expresión
+que en la materia física es el átomo en la computación es elo bit por ende como se interpreta esto es como se moldea la realidad 
