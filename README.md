@@ -28,9 +28,11 @@ La página web permite cambiar varios ajustes del sonido según lo que necesites
 
 A nivel gráfico, la interfaz adopta una tipografía limpia (Inter), una paleta de colores basada en blancos, grises y azul eléctrico que nos da toda la vibra de los menús de la consola Nintendo Wii (reforzando la idea de control interactivo e inalámbrico), y un canvas central que muestra una barra azul de resaltado indicando exactamente qué parte de la imagen está sonando en tiempo real.
 
-poner cap de la pagina web:)
-![iniciol](./imagen.png) 
-![panel-configuraciones](./imagen.png)
+
+| Inicio | MIDI | MediaPipe |
+|---|---|---|
+| ![Inicio](./imagenes/inicio.png) | ![MIDI](./imagenes/MIDI.png) | ![MediaPipe](./imagenes/Mediapipe.png) |
+
 
 **4. Reflexión**  
 
