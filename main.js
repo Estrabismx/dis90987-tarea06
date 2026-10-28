@@ -12,6 +12,13 @@ const mediaUploadZone = document.getElementById('mediaUploadZone');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const canvasContainer = document.getElementById('canvasContainer');
+const appHeader = document.getElementById('appHeader');
+const appMain = document.getElementById('appMain');
+const appFooter = document.getElementById('appFooter');
+const scannerAppView = document.getElementById('scannerAppView');
+const scannerTitleBar = document.getElementById('scannerTitleBar');
+const scannerWorkspace = document.getElementById('scannerWorkspace');
+const scannerControls = document.getElementById('scannerControls');
 
 const resolutionRange = document.getElementById('resolution');
 const speedRange = document.getElementById('speed');
@@ -1005,23 +1012,53 @@ function renderSpectrogram() {
     ctx.filter = 'none';
 }
 
-// Agranda o achica la imagen en pantalla para que ocupe todo el espacio disponible sin deformarse.
+// Suma los valores en píxeles de varias propiedades CSS de un elemento.
+function sumStyles(element, ...properties) {
+    const style = getComputedStyle(element);
+    return properties.reduce((total, property) => total + (parseFloat(style[property]) || 0), 0);
+}
+
+// Espacio libre para la imagen: la pantalla menos el encabezado, el pie, la columna de botones y los bordes.
+function getCanvasArea() {
+    const horizontalEdges = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'];
+    const verticalEdges = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'];
+    const viewMaxWidth = parseFloat(getComputedStyle(scannerAppView).maxWidth) || Infinity;
+    let width = Math.min(appMain.clientWidth - sumStyles(appMain, 'paddingLeft', 'paddingRight'), viewMaxWidth)
+        - sumStyles(scannerAppView, ...horizontalEdges)
+        - sumStyles(canvasContainer, ...horizontalEdges);
+    let height = window.innerHeight - appHeader.offsetHeight - appFooter.offsetHeight
+        - sumStyles(appMain, 'paddingTop', 'paddingBottom')
+        - sumStyles(scannerAppView, ...verticalEdges)
+        - scannerTitleBar.offsetHeight - sumStyles(scannerTitleBar, 'marginBottom')
+        - sumStyles(canvasContainer, ...verticalEdges);
+    const stacked = getComputedStyle(scannerWorkspace).gridTemplateColumns.split(' ').length === 1;
+    if (stacked) {
+        // En celulares los botones van arriba y la página puede bajar: la imagen usa a lo más 60% de la pantalla.
+        height = window.innerHeight * 0.6;
+    } else {
+        width -= scannerControls.offsetWidth + sumStyles(scannerWorkspace, 'columnGap');
+    }
+    return { width: Math.max(width, 120), height: Math.max(height, 120) };
+}
+
+// Agranda o achica la imagen en pantalla para que ocupe todo el espacio disponible sin deformarse,
+// y la ventana se encoge alrededor de ella para no dejar espacios vacíos.
 // Solo cambia el tamaño visible: los píxeles que se usan para el sonido siguen siendo los mismos.
 function fitCanvasToView() {
     canvasContainer.classList.toggle('has-media', mediaLoaded);
+    scannerAppView.classList.toggle('has-media', mediaLoaded);
     if (!mediaLoaded) {
         canvas.style.width = '';
+        canvas.style.height = '';
         return;
     }
-    // La última columna de la grilla es el espacio reservado para la imagen.
-    const columns = getComputedStyle(canvasContainer.parentElement).gridTemplateColumns.split(' ');
-    const containerStyle = getComputedStyle(canvasContainer);
-    const borderAndPadding = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight)
-        + parseFloat(containerStyle.borderLeftWidth) + parseFloat(containerStyle.borderRightWidth);
-    const availableWidth = parseFloat(columns[columns.length - 1]) - borderAndPadding;
-    const availableHeight = parseFloat(getComputedStyle(canvas).maxHeight);
-    const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
-    canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
+    // Se calcula dos veces porque al angostarse la ventana el título puede pasar a dos líneas y quitar alto.
+    for (let pass = 0; pass < 2; pass += 1) {
+        const area = getCanvasArea();
+        const scale = Math.min(area.width / canvas.width, area.height / canvas.height);
+        canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
+        canvas.style.height = `${Math.floor(canvas.height * scale)}px`;
+    }
 }
 
 function updateMediaControls() {

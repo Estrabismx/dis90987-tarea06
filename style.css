@@ -65,10 +65,21 @@ body.camera-mode-active .lid-cursor {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6' stroke='%23ffffff' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.5 11V6.75a1.5 1.5 0 0 1 3 0V11V5.75a1.5 1.5 0 0 1 3 0v5.25V10a1.5 1.5 0 0 1 3 0v4.7c0 4.1-2.8 6.8-6.9 6.8h-.9c-2.3 0-4.1-.9-5.5-2.6l-2.7-3.3a1.7 1.7 0 0 1 2.5-2.3L7.5 15v-4Z'/%3E%3C/svg%3E");
 }
 
+/* Sin archivo la ventana llena el espacio entre el encabezado y el pie.
+   Con imagen o espectrograma se encoge alrededor de ella (el tamaño lo calcula main.js). */
 .scanner-app-view {
-    --scanner-height: min(82dvh, 52rem);
-    height: var(--scanner-height);
     min-height: 0;
+}
+
+.scanner-app-view.has-media {
+    width: fit-content;
+    align-self: center;
+}
+
+/* El texto del título se acomoda al ancho de la ventana en vez de estirarla. */
+.scanner-title-bar {
+    width: 0;
+    min-width: 100%;
 }
 
 .scanner-workspace {
@@ -139,20 +150,12 @@ body.camera-mode-active .lid-cursor {
 }
 
 .canvas-container #canvas {
-    /* Alto de la ventana menos el encabezado y los bordes. */
-    max-height: calc(var(--scanner-height) - 9.5rem);
-    width: auto;
     max-width: 100%;
 }
 
 @media (max-width: 640px) {
-    .scanner-app-view {
-        height: auto;
-        min-height: min(62dvh, 36rem);
-    }
-
-    .canvas-container #canvas {
-        max-height: 42dvh;
+    .scanner-app-view.has-media {
+        width: 100%;
     }
 
     .footer-bar {
@@ -199,15 +202,49 @@ body.camera-mode-active .lid-cursor {
     }
 }
 
-@media (max-height: 700px) and (min-width: 641px) {
-    .scanner-app-view {
-        height: auto;
-        min-height: 26rem;
+/* Pantallas bajas (por ejemplo notebooks de 1366x768): todo se compacta para que quepa sin scroll. */
+@media (max-height: 760px) and (min-width: 641px) {
+    #appHeader {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
     }
 
-    /* Puede ser tan alta como la columna de botones sin agrandar la ventana. */
-    .canvas-container #canvas {
-        max-height: max(38dvh, 25rem);
+    #appFooter {
+        height: 5rem;
+    }
+
+    #footerHomeButton,
+    .footer-controls > button {
+        width: 3.75rem;
+        height: 3.75rem;
+    }
+
+    #scannerAppView {
+        padding: 0.75rem;
+    }
+
+    #scannerTitleBar {
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .scanner-controls {
+        gap: 0.5rem;
+    }
+
+    #mediaUploadZone {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
+
+    .scanner-playback-controls {
+        flex-direction: row;
+    }
+
+    .scanner-playback-controls > button {
+        flex: 1;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
     }
 }
 
