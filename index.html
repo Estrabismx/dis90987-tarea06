@@ -43,8 +43,8 @@
     </header>
 
     <!-- Main Content Area: Direct Audio & Image Scanner Workspace -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-2 flex items-center justify-center z-10">
-        <div id="scannerAppView" class="scanner-app-view flex w-full max-w-5xl flex-col bg-white/95 backdrop-blur-md text-gray-800 p-4 md:p-5 rounded-3xl shadow-2xl border-4 border-blue-400">
+    <main class="flex-1 max-w-screen-2xl w-full mx-auto px-4 md:px-8 py-2 flex items-center justify-center z-10">
+        <div id="scannerAppView" class="scanner-app-view flex w-full max-w-7xl flex-col bg-white/95 backdrop-blur-md text-gray-800 p-4 md:p-5 rounded-3xl shadow-2xl border-4 border-blue-400">
             <div class="relative flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
                 <div class="flex items-center space-x-3">
                     <div class="bg-blue-500 p-2 rounded-xl text-white font-bold">AUDIO</div>
@@ -66,7 +66,7 @@
                     <input type="file" id="imageInput" accept="image/*,audio/mpeg,audio/wav,audio/ogg" class="sr-only">
                     <label class="scanner-free-mode flex cursor-pointer items-start gap-2 text-sm font-semibold text-gray-700">
                         <input id="freeModeToggle" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-blue-500">
-                        <span>Modo libre: mover la barra con el cursor</span>
+                        <span>Modo libre: mueve la barra con el cursor y mantén el clic para que suene</span>
                     </label>
                     <div class="scanner-playback-controls">
                         <button id="playPauseButton" type="button" class="rounded-xl bg-green-500 px-4 py-3 font-bold text-white shadow-md transition hover:bg-green-600 cursor-pointer" disabled>Play</button>
@@ -123,7 +123,7 @@
     </footer>
 
     <!-- Modal 1: Web Application Info -->
-    <div id="infoModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[100] flex items-center justify-center p-4 hidden">
+    <div id="infoModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl shadow-2xl border-4 border-blue-400 max-w-lg w-full p-6 text-gray-800 relative">
             <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
                 <div class="flex items-center space-x-2">
@@ -133,7 +133,7 @@
                 <button id="closeInfoButton" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 cursor-pointer">X</button>
             </div>
             <div class="bg-blue-50/70 p-4 rounded-2xl border border-blue-200 text-sm text-gray-700 space-y-2 mb-6">
-                <p>Esta aplicación web es un <strong>Traductor de bits</strong> que procesa cualquier fotografía cargada barriendo sus columnas de izquierda a derecha. Cada columna calcula el promedio de sus colores RGB e interpreta el brillo para generar frecuencias musicales en tiempo real.</p>
+                <p>Esta aplicación web es un <strong>Traductor de bits</strong> que procesa cualquier fotografía cargada barriendo sus columnas de izquierda a derecha. Cada bloque analiza su color: la posición define la nota base, el matiz (rojo, verde, azul, violeta...) la sube hasta una octava y la intensidad del color define el volumen, generando frecuencias musicales en tiempo real.</p>
             </div>
             <button id="infoConfirmButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition cursor-pointer">Entendido</button>
         </div>
@@ -176,7 +176,7 @@
                     </div>
                     <div>
                         <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Filas Y: <span id="rowsValue" class="editable-value text-blue-600 cursor-text">24</span></span><button id="learnRowsMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
-                        <input type="range" id="rows" min="4" max="128" value="24" step="1" class="w-full accent-blue-500 cursor-pointer">
+                        <input type="range" id="rows" min="8" max="1024" value="24" step="4" class="w-full accent-blue-500 cursor-pointer">
                     </div>
                     <div>
                         <label class="flex items-center justify-between gap-1 font-semibold mb-1 text-gray-700"><span>Velocidad X: <span id="speedValue" class="editable-value text-blue-600 cursor-text">150</span> ms</span><button id="learnSpeedMidi" type="button" class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 cursor-pointer">Aprender CC</button></label>
@@ -235,7 +235,7 @@
                         <option value="">Selecciona una entrada MIDI</option>
                     </select>
                     <button id="midiToggleButton" type="button" class="w-full rounded-lg bg-blue-500 px-3 py-2 font-bold text-white shadow-sm transition hover:bg-blue-600 cursor-pointer text-xs">Activar MIDI</button>
-                    <p class="text-[10px] leading-tight text-gray-500">CC 1-11 controlan los sliders en el orden mostrado, incluidos los ajustes de imagen.</p>
+                    <p class="text-[10px] leading-tight text-gray-500">CC 1-13 vienen asignados por defecto a los sliders, incluidos los ajustes de imagen. Usa "Aprender CC" para cambiar la asignación.</p>
                 </div>
             </div>
             <div id="visualSettingsPanel" role="tabpanel" aria-labelledby="visualSettingsTab" class="settings-tab-panel hidden space-y-2 mb-3 text-xs">
@@ -259,7 +259,7 @@
     </div>
 
     <!-- Modal 3: MediaPipe Camera / Gesture Control Modal -->
-    <div id="cameraModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[150] flex items-center justify-center p-4 hidden">
+    <div id="cameraModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl shadow-2xl border-4 border-emerald-400 max-w-md w-full p-6 text-gray-800 relative">
             <div class="relative flex items-center justify-between mb-4 border-b border-gray-200 pb-3">
                 <div class="flex items-center space-x-3">
@@ -284,7 +284,7 @@
                 <div class="flex gap-3">
                     <button id="toggleCameraActiveButton" type="button" class="w-full rounded-xl bg-emerald-500 hover:bg-emerald-600 px-4 py-2.5 font-bold text-white shadow-md transition cursor-pointer text-sm">Iniciar Cámara</button>
                 </div>
-                <p class="text-[11px] text-gray-500">Mano abierta = mover cursor. Cerrar mano = hacer clic.</p>
+                <p class="text-[11px] text-gray-500">Mano abierta = mover cursor. Cerrar mano = hacer clic. En modo libre, mantén la mano cerrada sobre la imagen para que suene.</p>
             </div>
             <video id="cameraVideo" class="camera-processing-media" autoplay muted playsinline></video>
             <canvas id="cameraProcessingCanvas" class="camera-processing-media"></canvas>
@@ -292,7 +292,7 @@
     </div>
 
     <!-- Modal 4: Message Board with Instagram Links -->
-    <div id="messageBoardModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-[150] flex items-center justify-center p-4 hidden">
+    <div id="messageBoardModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl border-2 border-blue-400 max-w-sm w-full p-6 text-center text-gray-800">
             <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
             <h3 class="text-lg font-bold mb-2">Tablón de Mensajes</h3>

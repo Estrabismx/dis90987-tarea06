@@ -1,4 +1,3 @@
-const appTitleHeader = document.getElementById('appTitleHeader');
 const clockDisplay = document.getElementById('clockDisplay');
 const dateDisplay = document.getElementById('dateDisplay');
 const playPauseButton = document.getElementById('playPauseButton');
@@ -12,47 +11,44 @@ const imageInput = document.getElementById('imageInput');
 const mediaUploadZone = document.getElementById('mediaUploadZone');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+const canvasContainer = document.getElementById('canvasContainer');
 
 const resolutionRange = document.getElementById('resolution');
-const resValue = document.getElementById('resValue');
 const speedRange = document.getElementById('speed');
-const speedValue = document.getElementById('speedValue');
 const rowsRange = document.getElementById('rows');
-const rowsValue = document.getElementById('rowsValue');
 const speedYRange = document.getElementById('speedY');
-const speedYValue = document.getElementById('speedYValue');
 const waveTypeSelect = document.getElementById('waveType');
 const attackRange = document.getElementById('attack');
-const attackValue = document.getElementById('attackValue');
 const releaseRange = document.getElementById('release');
-const releaseValue = document.getElementById('releaseValue');
 const minFrequencyRange = document.getElementById('minFrequency');
-const minFrequencyValue = document.getElementById('minFrequencyValue');
 const maxFrequencyRange = document.getElementById('maxFrequency');
-const maxFrequencyValue = document.getElementById('maxFrequencyValue');
 const volumeRange = document.getElementById('volume');
-const volumeValue = document.getElementById('volumeValue');
 const reverbRange = document.getElementById('reverb');
-const reverbValue = document.getElementById('reverbValue');
 const imageBrightnessRange = document.getElementById('imageBrightness');
-const imageBrightnessValue = document.getElementById('imageBrightnessValue');
 const imageContrastRange = document.getElementById('imageContrast');
-const imageContrastValue = document.getElementById('imageContrastValue');
 const imageOpacityRange = document.getElementById('imageOpacity');
-const imageOpacityValue = document.getElementById('imageOpacityValue');
-const learnBrightnessMidi = document.getElementById('learnBrightnessMidi');
-const learnContrastMidi = document.getElementById('learnContrastMidi');
-const learnOpacityMidi = document.getElementById('learnOpacityMidi');
-const learnResolutionMidi = document.getElementById('learnResolutionMidi');
-const learnSpeedMidi = document.getElementById('learnSpeedMidi');
-const learnRowsMidi = document.getElementById('learnRowsMidi');
-const learnSpeedYMidi = document.getElementById('learnSpeedYMidi');
-const learnAttackMidi = document.getElementById('learnAttackMidi');
-const learnReleaseMidi = document.getElementById('learnReleaseMidi');
-const learnMinFrequencyMidi = document.getElementById('learnMinFrequencyMidi');
-const learnMaxFrequencyMidi = document.getElementById('learnMaxFrequencyMidi');
-const learnVolumeMidi = document.getElementById('learnVolumeMidi');
-const learnReverbMidi = document.getElementById('learnReverbMidi');
+
+// Cada slider con el texto que muestra su valor, su botón "Aprender CC" y cómo se formatea.
+const sliderControls = [
+    { range: resolutionRange, valueId: 'resValue', learnId: 'learnResolutionMidi', format: (value) => value },
+    { range: rowsRange, valueId: 'rowsValue', learnId: 'learnRowsMidi', format: (value) => value },
+    { range: speedRange, valueId: 'speedValue', learnId: 'learnSpeedMidi', format: (value) => value },
+    { range: speedYRange, valueId: 'speedYValue', learnId: 'learnSpeedYMidi', format: (value) => value },
+    { range: attackRange, valueId: 'attackValue', learnId: 'learnAttackMidi', format: (value) => `${value}s` },
+    { range: releaseRange, valueId: 'releaseValue', learnId: 'learnReleaseMidi', format: (value) => `${value}s` },
+    { range: minFrequencyRange, valueId: 'minFrequencyValue', learnId: 'learnMinFrequencyMidi', format: (value) => `${value}Hz` },
+    { range: maxFrequencyRange, valueId: 'maxFrequencyValue', learnId: 'learnMaxFrequencyMidi', format: (value) => `${value}Hz` },
+    { range: volumeRange, valueId: 'volumeValue', learnId: 'learnVolumeMidi', format: (value) => `${Math.round(Number(value) * 100)}%` },
+    { range: reverbRange, valueId: 'reverbValue', learnId: 'learnReverbMidi', format: (value) => `${Math.round(Number(value) * 100)}%` },
+    { range: imageBrightnessRange, valueId: 'imageBrightnessValue', learnId: 'learnBrightnessMidi', format: (value) => `${value}%` },
+    { range: imageContrastRange, valueId: 'imageContrastValue', learnId: 'learnContrastMidi', format: (value) => `${value}%` },
+    { range: imageOpacityRange, valueId: 'imageOpacityValue', learnId: 'learnOpacityMidi', format: (value) => `${value}%` }
+].map((control) => ({
+    ...control,
+    valueElement: document.getElementById(control.valueId),
+    learnButton: document.getElementById(control.learnId)
+}));
+
 const soundSettingsTab = document.getElementById('soundSettingsTab');
 const visualSettingsTab = document.getElementById('visualSettingsTab');
 const soundSettingsPanel = document.getElementById('soundSettingsPanel');
@@ -88,15 +84,18 @@ let synth = null;
 let reverbNode = null;
 let mediaType = null;
 let audioBuffer = null;
-let audioFile = null;
 let audioPlaybackContext = null;
 let audioPlaybackSource = null;
+let audioPlaybackNodes = [];
+let audioReverbImpulse = null;
 let audioPlaybackStartedAt = 0;
 let audioPlaybackOffset = 0;
-let audioPlaybackGain = null;
-let audioPlaybackReverb = null;
+let audioVisualizationFrame = null;
 let spectrogramImageData = null;
-let spectrogramGenerationId = 0;
+let spectrogramCanvas = null;
+let mediaGenerationId = 0;
+let filteredImageCache = null;
+let dropSynth = null;
 let downloadInProgress = false;
 let midiAccess = null;
 let activeMidiInput = null;
@@ -132,24 +131,50 @@ let lastInferenceTime = 0;
 let lastHandSeenTime = 0;
 let lastClosedClickTime = 0;
 let nativeCursorPosition = { x: 0.5, y: 0.5 };
-let freeScanLastColumn = -1;
+let lastFreeScanKey = null;
+let lastFreeNoteTime = 0;
+let freeModeDrawFrame = null;
+let freeModeMousePressed = false;
+let freeModeHandClosed = false;
 const lidCursor = document.getElementById('lidCursor');
+document.body.classList.add('custom-cursor');
 
 const handInferenceInterval = 50;
 const handLostTimeout = 220;
 const clickDebounce = 350;
 const gestureHitboxScale = 1.5;
-const darknessThreshold = 0.45;
+const minColorVolume = 0.15;
+const maxNotesPerStep = 16;
+const minFreeNoteInterval = 100;
+const toneLookAhead = 0.02;
+const limiterThreshold = -1;
+const synthPolyphony = 128;
+const synthDecay = 0.1;
+const synthSustain = 0.5;
+const reverbDecay = 2;
+const reverbPreDelay = 0.01;
+const clickSoundVolume = 0.3;
+const maxExportSeconds = 5 * 60;
+const maxImageWidth = 1200;
+const mediaPipeHandsUrl = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240';
 
-// Water drop sound effect using Tone.js
-function playWaterDropSound() {
-    if (typeof Tone === 'undefined') return;
-    try {
-        const dropSynth = new Tone.Synth({
+// Water drop sound effect using Tone.js (un solo synth reutilizado para no acumular memoria)
+function getDropSynth() {
+    if (typeof Tone === 'undefined') return null;
+    if (!dropSynth) {
+        dropSynth = new Tone.Synth({
             oscillator: { type: 'sine' },
-            envelope: { attack: 0.005, decay: 0.15, sustain: 0, release: 0.1 }
+            envelope: { attack: 0.005, decay: 0.15, sustain: 0, release: 0.1 },
+            // Tone.js mide el volumen en decibeles: 20 * log10(0.3) ≈ -10.5 dB, es decir, 30% del volumen.
+            volume: 20 * Math.log10(clickSoundVolume)
         }).toDestination();
-        dropSynth.triggerAttackRelease('C6', '8n');
+    }
+    return dropSynth;
+}
+
+function playWaterDropSound() {
+    try {
+        getDropSynth()?.triggerAttackRelease('C6', '8n');
     } catch (e) {}
 }
 
@@ -166,15 +191,16 @@ function loadMediaPipeHands() {
 
     handLoadPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
+        script.src = `${mediaPipeHandsUrl}/hands.js`;
         script.async = true;
         script.onload = () => {
             if (typeof Hands === 'undefined') {
+                handLoadPromise = null;
                 reject(new Error('MediaPipe Hands no está disponible.'));
                 return;
             }
             handProcessor = new Hands({
-                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                locateFile: (file) => `${mediaPipeHandsUrl}/${file}`
             });
             handProcessor.setOptions({
                 maxNumHands: 1,
@@ -185,7 +211,12 @@ function loadMediaPipeHands() {
             handProcessor.onResults(handleHandResults);
             resolve(handProcessor);
         };
-        script.onerror = () => reject(new Error('No se pudo cargar MediaPipe Hands.'));
+        script.onerror = () => {
+            // Se borra la promesa fallida para que el próximo intento vuelva a cargar el script.
+            handLoadPromise = null;
+            script.remove();
+            reject(new Error('No se pudo cargar MediaPipe Hands.'));
+        };
         document.head.appendChild(script);
     });
     return handLoadPromise;
@@ -199,33 +230,58 @@ window.addEventListener('pointermove', (event) => {
     if (cameraModeActive) return;
     lidCursor.style.left = `${event.clientX}px`;
     lidCursor.style.top = `${event.clientY}px`;
+    handleFreeCursorMove();
 });
+
+function getSynthOptions() {
+    return {
+        oscillator: { type: waveTypeSelect.value },
+        envelope: {
+            attack: Number(attackRange.value),
+            decay: synthDecay,
+            sustain: synthSustain,
+            release: Number(releaseRange.value)
+        }
+    };
+}
+
+// Crea el synth en vivo: notas → reverb → limitador → salida de Tone.js.
+// El limitador evita que se distorsione cuando muchas notas fuertes coinciden.
+// No afecta al sonido del clic, que va directo a la salida.
+function createToneSynth() {
+    const reverb = new Tone.Reverb({ decay: reverbDecay, preDelay: reverbPreDelay, wet: Number(reverbRange.value) });
+    const limiter = new Tone.Limiter(limiterThreshold);
+    // Ojo: con new Tone.PolySynth(Tone.Synth, {...}) las opciones van a cada voz y maxPolyphony se ignora.
+    const toneSynth = new Tone.PolySynth({
+        voice: Tone.Synth,
+        maxPolyphony: synthPolyphony
+    }).connect(reverb);
+    reverb.connect(limiter);
+    limiter.toDestination();
+    toneSynth.set(getSynthOptions());
+    return { toneSynth, reverb };
+}
 
 function ensureSynth() {
     if (typeof Tone === 'undefined') return null;
     if (!synth) {
-        reverbNode = new Tone.Reverb({ decay: 2, wet: Number(reverbRange.value) });
-        synth = new Tone.PolySynth(Tone.Synth, {
-            maxPolyphony: getTotalRows()
-        }).chain(reverbNode, Tone.Destination);
-        synth.set({
-            oscillator: { type: waveTypeSelect.value },
-            envelope: {
-                attack: Number(attackRange.value),
-                decay: 0.1,
-                sustain: 0.5,
-                release: Number(releaseRange.value)
-            }
-        });
+        // Tone.js programa los sonidos 100 ms en el futuro por defecto ("lookAhead"). En una app interactiva
+        // eso atrasa el sonido respecto de la barra y deja las voces ocupadas más tiempo, así que se reduce.
+        Tone.getContext().lookAhead = toneLookAhead;
+        ({ toneSynth: synth, reverb: reverbNode } = createToneSynth());
         updateDestinationVolume();
     }
     return synth;
 }
 
+function getVolumeDb() {
+    const volume = Number(volumeRange.value);
+    return volume === 0 ? -Infinity : 20 * Math.log10(volume);
+}
+
 function updateDestinationVolume() {
     if (typeof Tone === 'undefined' || !Tone.Destination) return;
-    const volume = Number(volumeRange.value);
-    Tone.Destination.volume.value = volume === 0 ? -Infinity : 20 * Math.log10(volume);
+    Tone.Destination.volume.value = getVolumeDb();
 }
 
 function startAudio() {
@@ -233,20 +289,40 @@ function startAudio() {
     return ensureSynth();
 }
 
-function stopAudioPlayback() {
+// Detiene la fuente y desconecta todos los nodos creados en playAudioBuffer.
+function disconnectAudioPlayback() {
+    stopAudioVisualization();
     if (audioPlaybackSource) {
         audioPlaybackSource.onended = null;
         audioPlaybackSource.stop();
-        audioPlaybackSource.disconnect();
         audioPlaybackSource = null;
     }
+    audioPlaybackNodes.forEach((node) => node.disconnect());
+    audioPlaybackNodes = [];
+}
+
+function stopAudioPlayback() {
+    disconnectAudioPlayback();
     audioPlaybackOffset = 0;
+}
+
+// Contraste < 100% baja el volumen; > 100% satura la señal con una curva tanh.
+function createContrastCurve(contrast) {
+    const curve = new Float32Array(1024);
+    const gain = Math.min(1, contrast);
+    const drive = Math.max(0, contrast - 1) * 5;
+    for (let index = 0; index < curve.length; index += 1) {
+        const x = index / (curve.length - 1) * 2 - 1;
+        curve[index] = gain * (drive > 0 ? Math.tanh(drive * x) / Math.tanh(drive) : x);
+    }
+    return curve;
 }
 
 async function playAudioBuffer() {
     if (!audioBuffer) return;
     audioPlaybackContext = audioPlaybackContext || new AudioContext();
     await audioPlaybackContext.resume();
+    if (!isPlaying) return;
     const offset = audioPlaybackOffset;
     stopAudioPlayback();
     const source = audioPlaybackContext.createBufferSource();
@@ -261,11 +337,8 @@ async function playAudioBuffer() {
         Math.max(0, volume * brightness * opacity),
         audioPlaybackContext.currentTime + Number(attackRange.value)
     );
-    const contrastCurve = new Float32Array(2);
-    contrastCurve[0] = -Math.min(1, contrast);
-    contrastCurve[1] = Math.min(1, contrast);
     const contrastNode = audioPlaybackContext.createWaveShaper();
-    contrastNode.curve = contrastCurve;
+    contrastNode.curve = createContrastCurve(contrast);
     contrastNode.connect(output);
     const reverb = createAudioReverb(audioPlaybackContext);
     const wet = audioPlaybackContext.createGain();
@@ -282,42 +355,88 @@ async function playAudioBuffer() {
     source.start(0, audioPlaybackOffset);
     audioPlaybackStartedAt = audioPlaybackContext.currentTime - audioPlaybackOffset;
     audioPlaybackSource = source;
-    audioPlaybackGain = output;
-    audioPlaybackReverb = reverb;
+    audioPlaybackNodes = [source, contrastNode, output, reverb, wet, dry];
     const releaseAt = audioPlaybackContext.currentTime + Math.max(0, audioBuffer.duration - audioPlaybackOffset - Number(releaseRange.value));
     output.gain.setValueAtTime(Math.max(0, volume * brightness * opacity), releaseAt);
     output.gain.linearRampToValueAtTime(0, releaseAt + Number(releaseRange.value));
     source.onended = () => {
         if (audioPlaybackSource !== source) return;
-        audioPlaybackSource = null;
-        audioPlaybackOffset = 0;
+        stopAudioPlayback();
+        renderSpectrogram();
         isPlaying = false;
         playPauseButton.innerText = 'Play';
         stopButton.disabled = false;
     };
+    updateAudioVisualization();
 }
 
 function createAudioReverb(context) {
     const convolver = context.createConvolver();
-    const duration = 1.5;
-    const impulse = context.createBuffer(2, context.sampleRate * duration, context.sampleRate);
-    for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
-        const data = impulse.getChannelData(channel);
-        for (let index = 0; index < data.length; index += 1) {
-            data[index] = (Math.random() * 2 - 1) * Math.pow(1 - index / data.length, 2);
+    // El impulso (ruido que decae) se genera una sola vez y se reutiliza en cada Play.
+    if (!audioReverbImpulse) {
+        const duration = 1.5;
+        audioReverbImpulse = context.createBuffer(2, context.sampleRate * duration, context.sampleRate);
+        for (let channel = 0; channel < audioReverbImpulse.numberOfChannels; channel += 1) {
+            const data = audioReverbImpulse.getChannelData(channel);
+            for (let index = 0; index < data.length; index += 1) {
+                data[index] = (Math.random() * 2 - 1) * Math.pow(1 - index / data.length, 2);
+            }
         }
     }
-    convolver.buffer = impulse;
+    convolver.buffer = audioReverbImpulse;
     return convolver;
 }
 
 function pauseAudioPlayback() {
     if (!audioPlaybackSource || !audioPlaybackContext) return;
     audioPlaybackOffset = audioPlaybackContext.currentTime - audioPlaybackStartedAt;
-    audioPlaybackSource.onended = null;
-    audioPlaybackSource.stop();
-    audioPlaybackSource.disconnect();
-    audioPlaybackSource = null;
+    disconnectAudioPlayback();
+}
+
+function stopAudioVisualization() {
+    if (audioVisualizationFrame) cancelAnimationFrame(audioVisualizationFrame);
+    audioVisualizationFrame = null;
+}
+
+function drawAudioPlaybackCursor(progress) {
+    if (!spectrogramImageData) return;
+    renderSpectrogram();
+
+    const axis = getScanAxis();
+    const columns = getTotalColumns();
+    const rows = getTotalRows();
+    const column = Math.min(columns - 1, Math.floor(progress * columns));
+    const row = Math.min(rows - 1, Math.floor(progress * rows));
+    const columnWidth = canvas.width / columns;
+    const rowHeight = canvas.height / rows;
+
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.35)';
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 2;
+    if (axis === 'y') {
+        ctx.fillRect(0, row * rowHeight, canvas.width, rowHeight);
+        ctx.strokeRect(0, row * rowHeight, canvas.width, rowHeight);
+    } else if (axis === 'xy') {
+        ctx.fillRect(column * columnWidth, 0, columnWidth, canvas.height);
+        ctx.fillRect(0, row * rowHeight, canvas.width, rowHeight);
+        ctx.strokeRect(column * columnWidth, 0, columnWidth, canvas.height);
+        ctx.strokeRect(0, row * rowHeight, canvas.width, rowHeight);
+    } else {
+        ctx.fillRect(column * columnWidth, 0, columnWidth, canvas.height);
+        ctx.strokeRect(column * columnWidth, 0, columnWidth, canvas.height);
+    }
+}
+
+function updateAudioVisualization() {
+    if (!isPlaying || mediaType !== 'audio' || !audioBuffer || !audioPlaybackContext) return;
+    const elapsed = Math.max(0, audioPlaybackContext.currentTime - audioPlaybackStartedAt);
+    const progress = Math.min(1, elapsed / Math.max(audioBuffer.duration, 0.001));
+    drawAudioPlaybackCursor(progress);
+    if (progress < 1 && audioPlaybackSource) {
+        audioVisualizationFrame = requestAnimationFrame(updateAudioVisualization);
+    } else {
+        audioVisualizationFrame = null;
+    }
 }
 
 function setMidiStatus(message, isError = false) {
@@ -348,13 +467,21 @@ function handleMidiMessage(event) {
     const slider = midiSliderMap.get(controller);
     if (!slider) return;
 
-    const ratio = value / 127;
     const min = Number(slider.min);
     const max = Number(slider.max);
-    const step = Number(slider.step) || 1;
-    const steppedValue = Math.round((min + ratio * (max - min)) / step) * step;
-    slider.value = String(Math.max(min, Math.min(max, steppedValue)));
+    slider.value = snapToRange(min + value / 127 * (max - min), slider);
     slider.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// Ajusta un número al mínimo, máximo y paso del slider, sin errores de decimales (0.15000000000000002).
+function snapToRange(value, rangeElement) {
+    const min = Number(rangeElement.min);
+    const max = Number(rangeElement.max);
+    const step = Number(rangeElement.step) || 1;
+    const decimals = (String(rangeElement.step).split('.')[1] || '').length;
+    const clamped = Math.max(min, Math.min(max, value));
+    const stepped = Math.round((clamped - min) / step) * step + min;
+    return Math.min(max, stepped).toFixed(decimals);
 }
 
 function startMidiLearn(slider, button) {
@@ -394,15 +521,9 @@ function makeValueEditable(valueElement, rangeElement) {
 
         const commit = () => {
             const entered = Number(input.value);
-            const min = Number(rangeElement.min);
-            const max = Number(rangeElement.max);
-            const step = Number(rangeElement.step) || 1;
-            if (!Number.isFinite(entered)) {
-                rangeElement.dispatchEvent(new Event('input', { bubbles: true }));
-                return;
+            if (input.value.trim() !== '' && Number.isFinite(entered)) {
+                rangeElement.value = snapToRange(entered, rangeElement);
             }
-            const stepped = Math.round((Math.max(min, Math.min(max, entered)) - min) / step) * step + min;
-            rangeElement.value = String(Math.max(min, Math.min(max, stepped)));
             rangeElement.dispatchEvent(new Event('input', { bubbles: true }));
         };
         input.addEventListener('blur', commit, { once: true });
@@ -509,6 +630,11 @@ async function startCamera() {
         setCameraStatus('Tu navegador no permite acceder a la webcam.', true);
         return;
     }
+    // Si ya había una cámara activa (por ejemplo, al cambiar de cámara), se apaga antes de abrir la nueva.
+    if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+    if (cameraAnimationFrame) cancelAnimationFrame(cameraAnimationFrame);
+    cameraStream = null;
+    cameraAnimationFrame = null;
     try {
         setCameraStatus('Cargando MediaPipe y solicitando acceso...');
         const handPromise = loadMediaPipeHands();
@@ -546,6 +672,7 @@ function stopCamera() {
     cameraVideo.srcObject = null;
     smoothedGesturePosition = null;
     handWasOpen = false;
+    setFreeModeHandClosed(false);
     toggleCameraActiveButton.innerText = 'Iniciar Cámara';
     toggleCameraActiveButton.classList.replace('bg-blue-600', 'bg-emerald-500');
     lidCursor.style.opacity = '1';
@@ -565,6 +692,7 @@ function updateGestureCursor(x, y) {
     lidCursor.style.left = `${smoothedGesturePosition.x * window.innerWidth}px`;
     lidCursor.style.top = `${smoothedGesturePosition.y * window.innerHeight}px`;
     lidCursor.style.opacity = '1';
+    handleFreeCursorMove();
 }
 
 function getInteractiveTarget(x, y) {
@@ -586,7 +714,8 @@ function getInteractiveTarget(x, y) {
                     styles.display !== 'none' &&
                     styles.visibility !== 'hidden' &&
                     styles.pointerEvents !== 'none' &&
-                    !element.matches(':disabled'),
+                    !element.matches(':disabled') &&
+                    isOnTop(element, bounds),
                 priority: Number(element.dataset.mediapipePriority || 0),
                 left: bounds.left - widthIncrease,
                 right: bounds.right + widthIncrease,
@@ -603,6 +732,13 @@ function getInteractiveTarget(x, y) {
         );
 
     return candidates[0]?.element || null;
+}
+
+// true si el elemento se ve en pantalla y no está tapado por otro (por ejemplo, por una ventana abierta).
+// Se revisa el centro del elemento: lo que el navegador muestre ahí debe ser el elemento o algo dentro de él.
+function isOnTop(element, bounds) {
+    const topElement = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+    return !!topElement && (element === topElement || element.contains(topElement) || topElement.contains(element));
 }
 
 function clickWithClosedHand(x, y, isClosed) {
@@ -648,7 +784,21 @@ function handleHandResults(results) {
     lastHandSeenTime = performance.now();
     const position = mapHandToScreen(landmarks);
     updateGestureCursor(position.x, position.y);
+    // Modo libre: sobre la imagen, la mano cerrada equivale a mantener el clic presionado.
+    if (isFreeModeActive() && getCursorBlock()) {
+        handWasOpen = !position.isClosed;
+        setFreeModeHandClosed(position.isClosed);
+        return;
+    }
+    setFreeModeHandClosed(false);
     clickWithClosedHand(smoothedGesturePosition.x, smoothedGesturePosition.y, position.isClosed);
+}
+
+function setFreeModeHandClosed(isClosed) {
+    if (freeModeHandClosed === isClosed) return;
+    freeModeHandClosed = isClosed;
+    if (isClosed) playFreeBlock();
+    else stopFreeModeNotes();
 }
 
 async function processHandFrame(now) {
@@ -670,6 +820,7 @@ function processCameraFrame() {
     if (performance.now() - lastHandSeenTime > handLostTimeout) {
         smoothedGesturePosition = null;
         handWasOpen = false;
+        setFreeModeHandClosed(false);
     }
     cameraAnimationFrame = requestAnimationFrame(processCameraFrame);
 }
@@ -696,8 +847,12 @@ function updateUploadLabel(file) {
     const fileName = mediaUploadZone.querySelector('.media-file-name');
     fileName.innerText = file.name;
     fileName.title = file.name;
-    mediaUploadZone.querySelector('span:nth-child(3)').innerText =
-        isAudioFile(file) ? 'Audio listo para generar espectrograma.' : 'Imagen cargada con éxito.';
+    setMediaStatus(isAudioFile(file) ? 'Audio listo para generar espectrograma.' : 'Imagen cargada con éxito.');
+}
+
+// Muestra un mensaje en la línea pequeña de la zona de carga.
+function setMediaStatus(message) {
+    mediaUploadZone.querySelector('span:nth-child(3)').innerText = message;
 }
 
 function getTotalColumns() { return Number(resolutionRange.value); }
@@ -707,55 +862,65 @@ function getScanSpeed(axis = getScanAxis()) {
     return Number(axis === 'y' ? speedYRange.value : speedRange.value);
 }
 
-function getScanStepAxis(step) {
-    return getScanAxis();
+function getImageFilter() {
+    return `brightness(${Number(imageBrightnessRange.value) / 100}) contrast(${Number(imageContrastRange.value) / 100}) opacity(${Number(imageOpacityRange.value) / 100})`;
 }
 
-function getScanStepSpeed(step) {
-    return getScanSpeed(getScanStepAxis(step));
+// Guarda la imagen con filtros (sin la barra azul) en un canvas aparte.
+// Así el sonido siempre se calcula con los píxeles reales de la imagen y no con el resaltado.
+function getFilteredImage() {
+    const filter = getImageFilter();
+    if (filteredImageCache && filteredImageCache.source === mediaSource && filteredImageCache.filter === filter) {
+        return filteredImageCache;
+    }
+    const scale = Math.min(1, maxImageWidth / mediaSource.naturalWidth);
+    const width = Math.round(mediaSource.naturalWidth * scale);
+    const height = Math.round(mediaSource.naturalHeight * scale);
+    const imageCanvas = document.createElement('canvas');
+    imageCanvas.width = width;
+    imageCanvas.height = height;
+    const imageContext = imageCanvas.getContext('2d');
+    imageContext.filter = filter;
+    imageContext.drawImage(mediaSource, 0, 0, width, height);
+    filteredImageCache = {
+        source: mediaSource,
+        filter,
+        canvas: imageCanvas,
+        pixels: imageContext.getImageData(0, 0, width, height)
+    };
+    return filteredImageCache;
 }
 
 function drawMedia(highlightStep = -1, axis = 'x', highlightRow = highlightStep) {
     if (!mediaLoaded || mediaType !== 'image') return;
-    const width = mediaSource.naturalWidth;
-    const height = mediaSource.naturalHeight;
-    const maxWidth = 600;
-    const scale = Math.min(1, maxWidth / width);
-    const w = Math.round(width * scale);
-    const h = Math.round(height * scale);
+    const image = getFilteredImage();
+    const w = image.canvas.width;
+    const h = image.canvas.height;
     const columns = getTotalColumns();
+    const rows = getTotalRows();
 
-    canvas.width = w;
-    canvas.height = h;
-    ctx.filter = `brightness(${Number(imageBrightnessRange.value) / 100}) contrast(${Number(imageContrastRange.value) / 100}) opacity(${Number(imageOpacityRange.value) / 100})`;
-    ctx.drawImage(mediaSource, 0, 0, w, h);
-    ctx.filter = 'none';
+    if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        fitCanvasToView();
+    }
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(image.canvas, 0, 0);
 
     if (highlightStep < 0) return;
     const columnWidth = w / columns;
-    const rowHeight = h / getTotalRows();
+    const rowHeight = h / rows;
     const x = Math.min(columns - 1, Math.max(0, highlightStep)) * columnWidth;
+    const y = Math.min(rows - 1, Math.max(0, axis === 'y' ? highlightStep : highlightRow)) * rowHeight;
+    const highlights = [];
+    if (axis !== 'y') highlights.push([x, 0, columnWidth, h]);
+    if (axis !== 'x') highlights.push([0, y, w, rowHeight]);
+
     ctx.fillStyle = 'rgba(59, 130, 246, 0.35)';
-    if (axis === 'y') {
-        ctx.fillRect(0, highlightStep * rowHeight, w, rowHeight);
-    } else if (axis === 'xy') {
-        const row = Math.min(getTotalRows() - 1, highlightRow);
-        ctx.fillRect(x, 0, columnWidth, h);
-        ctx.fillRect(0, row * rowHeight, w, rowHeight);
-    } else {
-        ctx.fillRect(x, 0, columnWidth, h);
-    }
     ctx.strokeStyle = '#2563eb';
     ctx.lineWidth = 2;
-    if (axis === 'y') {
-        ctx.strokeRect(0, highlightStep * rowHeight, w, rowHeight);
-    } else if (axis === 'xy') {
-        const row = Math.min(getTotalRows() - 1, highlightRow);
-        ctx.strokeRect(x, 0, columnWidth, h);
-        ctx.strokeRect(0, row * rowHeight, w, rowHeight);
-    } else {
-        ctx.strokeRect(x, 0, columnWidth, h);
-    }
+    highlights.forEach((rect) => ctx.fillRect(...rect));
+    highlights.forEach((rect) => ctx.strokeRect(...rect));
 }
 
 function getVisualFrequencyRange() {
@@ -817,21 +982,49 @@ function getPaletteColor(value) {
     return [channel, channel, channel];
 }
 
+// Copia los píxeles del espectrograma a un canvas auxiliar que se crea una sola vez.
+function setSpectrogramImageData(imageData) {
+    spectrogramImageData = imageData;
+    spectrogramCanvas = spectrogramCanvas || document.createElement('canvas');
+    spectrogramCanvas.width = imageData.width;
+    spectrogramCanvas.height = imageData.height;
+    spectrogramCanvas.getContext('2d').putImageData(imageData, 0, 0);
+    renderSpectrogram();
+}
+
 function renderSpectrogram() {
     if (!spectrogramImageData) return;
-    canvas.width = spectrogramImageData.width;
-    canvas.height = spectrogramImageData.height;
-    const sourceCanvas = document.createElement('canvas');
-    sourceCanvas.width = spectrogramImageData.width;
-    sourceCanvas.height = spectrogramImageData.height;
-    sourceCanvas.getContext('2d').putImageData(spectrogramImageData, 0, 0);
+    if (canvas.width !== spectrogramCanvas.width || canvas.height !== spectrogramCanvas.height) {
+        canvas.width = spectrogramCanvas.width;
+        canvas.height = spectrogramCanvas.height;
+        fitCanvasToView();
+    }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.filter = `brightness(${Number(imageBrightnessRange.value) / 100}) contrast(${Number(imageContrastRange.value) / 100}) opacity(${Number(imageOpacityRange.value) / 100})`;
-    ctx.drawImage(sourceCanvas, 0, 0);
+    ctx.filter = getImageFilter();
+    ctx.drawImage(spectrogramCanvas, 0, 0);
     ctx.filter = 'none';
 }
 
-function updateDownloadButtons() {
+// Agranda o achica la imagen en pantalla para que ocupe todo el espacio disponible sin deformarse.
+// Solo cambia el tamaño visible: los píxeles que se usan para el sonido siguen siendo los mismos.
+function fitCanvasToView() {
+    canvasContainer.classList.toggle('has-media', mediaLoaded);
+    if (!mediaLoaded) {
+        canvas.style.width = '';
+        return;
+    }
+    // La última columna de la grilla es el espacio reservado para la imagen.
+    const columns = getComputedStyle(canvasContainer.parentElement).gridTemplateColumns.split(' ');
+    const containerStyle = getComputedStyle(canvasContainer);
+    const borderAndPadding = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight)
+        + parseFloat(containerStyle.borderLeftWidth) + parseFloat(containerStyle.borderRightWidth);
+    const availableWidth = parseFloat(columns[columns.length - 1]) - borderAndPadding;
+    const availableHeight = parseFloat(getComputedStyle(canvas).maxHeight);
+    const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
+    canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
+}
+
+function updateMediaControls() {
     downloadButton.disabled = !mediaLoaded || downloadInProgress;
     downloadButton.innerText = mediaType === 'image' ? 'Descargar MP3' : 'Descargar PNG';
     downloadButton.classList.toggle('bg-blue-500', mediaType !== 'image');
@@ -840,6 +1033,9 @@ function updateDownloadButtons() {
     downloadButton.classList.toggle('hover:bg-purple-600', mediaType === 'image');
     convertButton.disabled = !mediaLoaded || downloadInProgress;
     convertButton.innerText = mediaType === 'image' ? 'Convertir a audio' : 'Convertir a imagen';
+    // Con un archivo cargado, el recuadro negro se ajusta al tamaño de la imagen.
+    fitCanvasToView();
+    updateFreeModeToggle();
 }
 
 function downloadBlob(blob, filename) {
@@ -861,52 +1057,140 @@ function downloadCanvasAsPng() {
     }, 'image/png');
 }
 
-function getExportFrequencies(column) {
-    return getScanFrequencies(column);
+// Graba el escaneo completo con Web Audio nativo (OfflineAudioContext), recreando el synth que suena en vivo:
+// misma onda, envolvente, reverb y volumen. Es mucho más rápido que Tone.Offline y no tiene límite de voces,
+// así que no se pierde ninguna nota.
+async function renderImageAudioBuffer() {
+    if (typeof OfflineAudioContext === 'undefined') throw new Error('Este navegador no soporta OfflineAudioContext.');
+    const events = getScanEvents();
+    const lastEvent = events[events.length - 1];
+    const scanDuration = lastEvent ? lastEvent.time + lastEvent.duration : 0;
+    if (scanDuration > maxExportSeconds) {
+        throw new Error(
+            `El audio duraría ${(scanDuration / 60).toFixed(1)} min y el máximo es ${maxExportSeconds / 60} min. ` +
+            'Usa menos columnas/filas o una velocidad más rápida (menos ms).'
+        );
+    }
+    const steps = events.map((event) => ({ ...event, notes: getScanNotes(event.column, event.row) }));
+    const sampleRate = 44100;
+    const release = Number(releaseRange.value);
+    const wet = Number(reverbRange.value);
+    const tail = release + (wet > 0 ? reverbDecay : 0);
+    const context = new OfflineAudioContext(1, Math.ceil((scanDuration + tail) * sampleRate), sampleRate);
+
+    // Cadena de salida (igual que en vivo): notas → (seco + reverb) → limitador → volumen → destino.
+    const master = context.createGain();
+    master.gain.value = Number(volumeRange.value);
+    master.connect(context.destination);
+    // Mismos valores que usa Tone.Limiter por dentro.
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = limiterThreshold;
+    limiter.knee.value = 30;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.01;
+    limiter.connect(master);
+    const synthOutput = context.createGain();
+    // Mezcla seco/húmedo "de igual potencia", igual que la usa Tone.Reverb.
+    const dry = context.createGain();
+    dry.gain.value = Math.cos(wet * Math.PI / 2);
+    synthOutput.connect(dry);
+    dry.connect(limiter);
+    if (wet > 0) {
+        const reverb = context.createConvolver();
+        reverb.buffer = createToneLikeReverbImpulse(context);
+        const wetGain = context.createGain();
+        wetGain.gain.value = Math.sin(wet * Math.PI / 2);
+        synthOutput.connect(reverb);
+        reverb.connect(wetGain);
+        wetGain.connect(limiter);
+    }
+
+    // Las notas se crean por tramos de 1 segundo, justo antes de que suenen. Si se crearan todas al inicio,
+    // el navegador tendría que procesar miles de nodos durante todo el render y sería muy lento.
+    const scheduleWindow = (windowStart) => {
+        steps
+            .filter((step) => step.time >= windowStart && step.time < windowStart + 1)
+            .forEach((step) => step.notes.forEach((note) => {
+                scheduleNativeNote(context, synthOutput, note, step.time, step.duration * 0.9);
+            }));
+    };
+    scheduleWindow(0);
+    for (let windowStart = 1; windowStart < scanDuration; windowStart += 1) {
+        // Se pausa 10 ms antes porque el navegador redondea el momento de la pausa hacia adelante.
+        context.suspend(windowStart - 0.01).then(() => {
+            scheduleWindow(windowStart);
+            context.resume();
+        });
+    }
+    const buffer = await context.startRendering();
+    normalizeIfClipping(buffer.getChannelData(0));
+    return buffer;
 }
 
-function renderImageAudioSamples() {
-    const sampleRate = 44100;
-    const events = getScanEvents();
-    const durations = events.map((event, index) =>
-        (events[index + 1]?.time ?? event.time + event.duration) - event.time
-    );
-    const totalSamples = Math.ceil(
-        durations.reduce((total, duration) => total + duration, 0) * sampleRate
-    );
-    const samples = new Float32Array(totalSamples);
-    const volume = Number(volumeRange.value);
-    const attackSamples = Math.max(1, Math.floor(Number(attackRange.value) * sampleRate));
-    const releaseSamples = Math.max(1, Math.floor(Number(releaseRange.value) * sampleRate));
-    drawMedia();
+// Tone.js usa curvas exponenciales en el decay y el release; esta es su fórmula para la "constante de tiempo".
+function getToneTimeConstant(rampTime) {
+    return Math.log(rampTime + 1) / Math.log(200);
+}
 
-    for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
-        const event = events[eventIndex];
-        const frequencies = getScanFrequencies(event.column, event.row);
-        const start = Math.floor(
-            durations.slice(0, eventIndex).reduce((total, duration) => total + duration, 0) * sampleRate
-        );
-        const end = Math.min(totalSamples, Math.floor(
-            durations.slice(0, eventIndex + 1).reduce((total, duration) => total + duration, 0) * sampleRate
-        ));
-        for (let index = start; index < end; index += 1) {
-            const localIndex = index - start;
-            const remaining = end - index;
-            const envelope = Math.min(
-                1,
-                localIndex / attackSamples,
-                remaining / releaseSamples
-            );
-            let value = 0;
-            for (const frequency of frequencies) {
-                value += Math.sin(2 * Math.PI * frequency * index / sampleRate);
-            }
-            samples[index] = frequencies.length
-                ? value / frequencies.length * volume * envelope
-                : 0;
+// Una nota igual a la de Tone.Synth: ataque lineal hasta la velocity, decay exponencial hasta el sustain
+// y release exponencial hasta el silencio.
+function scheduleNativeNote(context, output, note, start, duration) {
+    const attack = Number(attackRange.value);
+    const release = Number(releaseRange.value);
+    const peak = note.velocity;
+    const sustain = peak * synthSustain;
+    const decayStart = start + attack;
+    const releaseStart = start + duration;
+    const decayTimeConstant = getToneTimeConstant(synthDecay);
+
+    const oscillator = context.createOscillator();
+    oscillator.type = waveTypeSelect.value;
+    oscillator.frequency.value = note.frequency;
+    const envelope = context.createGain();
+    envelope.gain.setValueAtTime(0, start);
+
+    if (releaseStart <= decayStart) {
+        // La nota se suelta antes de terminar el ataque: sube solo hasta donde alcanzó.
+        envelope.gain.linearRampToValueAtTime(peak * (duration / attack), releaseStart);
+    } else {
+        envelope.gain.linearRampToValueAtTime(peak, decayStart);
+        envelope.gain.setTargetAtTime(sustain, decayStart, decayTimeConstant);
+        // Valor exacto del decay al momento de soltar, para que el release parta sin saltos.
+        const levelAtRelease = sustain + (peak - sustain) * Math.exp(-(releaseStart - decayStart) / decayTimeConstant);
+        envelope.gain.setValueAtTime(levelAtRelease, releaseStart);
+    }
+    envelope.gain.setTargetAtTime(0, releaseStart, getToneTimeConstant(release));
+
+    oscillator.connect(envelope);
+    envelope.connect(output);
+    oscillator.start(start);
+    oscillator.stop(releaseStart + release + 0.05);
+}
+
+// Impulso de reverb como el de Tone.Reverb: ruido estéreo que se apaga de forma exponencial en `reverbDecay` segundos.
+function createToneLikeReverbImpulse(context) {
+    const length = Math.ceil((reverbPreDelay + reverbDecay) * context.sampleRate);
+    const impulse = context.createBuffer(2, length, context.sampleRate);
+    const timeConstant = getToneTimeConstant(reverbDecay);
+    const preDelaySamples = Math.floor(reverbPreDelay * context.sampleRate);
+    for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
+        const data = impulse.getChannelData(channel);
+        for (let index = preDelaySamples; index < length; index += 1) {
+            const time = (index - preDelaySamples) / context.sampleRate;
+            data[index] = (Math.random() * 2 - 1) * Math.exp(-time / timeConstant);
         }
     }
-    return { samples, sampleRate };
+    return impulse;
+}
+
+// Si alguna muestra supera 1 (notas que se superponen en el release o la reverb), baja todo el audio
+// lo justo para que no se distorsione al guardarlo.
+function normalizeIfClipping(samples) {
+    let peak = 0;
+    for (let i = 0; i < samples.length; i += 1) peak = Math.max(peak, Math.abs(samples[i]));
+    if (peak <= 1) return;
+    for (let i = 0; i < samples.length; i += 1) samples[i] /= peak;
 }
 
 function getScanEvents() {
@@ -965,15 +1249,17 @@ function getScanEvents() {
 async function downloadImageAsMp3() {
     if (mediaType !== 'image' || downloadInProgress) return;
     if (typeof lamejs === 'undefined') {
-        console.error('El codificador MP3 no está disponible.');
+        setMediaStatus('El codificador MP3 no está disponible.');
         return;
     }
 
     downloadInProgress = true;
-    updateDownloadButtons();
+    updateMediaControls();
     try {
-        const { samples, sampleRate } = renderImageAudioSamples();
-        const encoder = new lamejs.Mp3Encoder(1, sampleRate, 128);
+        setMediaStatus('Generando MP3...');
+        const renderedBuffer = await renderImageAudioBuffer();
+        const samples = renderedBuffer.getChannelData(0);
+        const encoder = new lamejs.Mp3Encoder(1, renderedBuffer.sampleRate, 128);
         const blockSize = 1152;
         const mp3Chunks = [];
         for (let offset = 0; offset < samples.length; offset += blockSize) {
@@ -988,27 +1274,31 @@ async function downloadImageAsMp3() {
         const finalBlock = encoder.flush();
         if (finalBlock.length) mp3Chunks.push(new Int8Array(finalBlock));
         downloadBlob(new Blob(mp3Chunks, { type: 'audio/mpeg' }), 'imagen-traducida.mp3');
+        setMediaStatus('MP3 descargado.');
+    } catch (error) {
+        setMediaStatus(error.message);
+        console.error('Error al exportar MP3:', error);
     } finally {
         downloadInProgress = false;
-        updateDownloadButtons();
+        updateMediaControls();
     }
 }
 
-async function generarEspectrogramaOffline(file) {
-    const generationId = ++spectrogramGenerationId;
+// generationId identifica la carga actual: si el usuario eligió otro archivo mientras tanto, se descarta el resultado.
+async function generarEspectrogramaOffline(file, generationId) {
     if (typeof OfflineAudioContext === 'undefined') {
         throw new Error('Este navegador no soporta OfflineAudioContext.');
     }
     const arrayBuffer = await file.arrayBuffer();
     const decoder = new OfflineAudioContext(1, 1, 44100);
-    audioBuffer = await decoder.decodeAudioData(arrayBuffer);
-    if (generationId !== spectrogramGenerationId) return;
+    const decoded = await decoder.decodeAudioData(arrayBuffer);
+    if (generationId !== mediaGenerationId) return;
 
     const fftSize = 2048;
-    const sourceData = new Float32Array(audioBuffer.length);
-    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel += 1) {
-        const channelData = audioBuffer.getChannelData(channel);
-        for (let i = 0; i < sourceData.length; i += 1) sourceData[i] += channelData[i] / audioBuffer.numberOfChannels;
+    const sourceData = new Float32Array(decoded.length);
+    for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+        const channelData = decoded.getChannelData(channel);
+        for (let i = 0; i < sourceData.length; i += 1) sourceData[i] += channelData[i] / decoded.numberOfChannels;
     }
 
     const width = 1024;
@@ -1036,7 +1326,7 @@ async function generarEspectrogramaOffline(file) {
         }
         for (let y = 0; y < height; y += 1) {
             const frequency = maxFrequency * Math.pow(minFrequency / maxFrequency, y / Math.max(1, height - 1));
-            const bin = Math.round(frequency * fftSize / audioBuffer.sampleRate);
+            const bin = Math.round(frequency * fftSize / decoded.sampleRate);
             const magnitude = previousMagnitudes[Math.max(0, Math.min(previousMagnitudes.length - 1, bin))];
             const db = 20 * Math.log10(Math.max(magnitude, 1e-8));
             const intensity = (db - minDb) / (maxDb - minDb);
@@ -1049,100 +1339,101 @@ async function generarEspectrogramaOffline(file) {
         }
     }
 
-    if (generationId !== spectrogramGenerationId) return;
-    spectrogramImageData = imageData;
-    renderSpectrogram();
+    if (generationId !== mediaGenerationId) return;
+    audioBuffer = decoded;
+    setSpectrogramImageData(imageData);
     mediaLoaded = true;
     mediaType = 'audio';
     playPauseButton.disabled = false;
     stopButton.disabled = false;
-    updateDownloadButtons();
+    updateMediaControls();
 }
 
 function getActiveCursorPosition() {
     return cameraModeActive && smoothedGesturePosition ? smoothedGesturePosition : nativeCursorPosition;
 }
 
-function getCursorColumn() {
-    if (!canvas.width) return 0;
-    const bounds = canvas.getBoundingClientRect();
-    const pos = getActiveCursorPosition();
-    const relativeX = (pos.x * window.innerWidth - bounds.left) / Math.max(1, bounds.width);
-    return Math.max(0, Math.min(getTotalColumns() - 1, Math.floor(relativeX * getTotalColumns())));
+// Devuelve el inicio y el final (en píxeles) del bloque número `index` al dividir `size` en `count` partes.
+function getBlockBounds(index, count, size) {
+    const blockSize = size / count;
+    const start = Math.min(size - 1, Math.floor(index * blockSize));
+    return [start, Math.max(start + 1, Math.floor((index + 1) * blockSize))];
 }
 
-function getCursorCanvasPosition() {
-    const bounds = canvas.getBoundingClientRect();
-    const pos = getActiveCursorPosition();
+// Color promedio de un rectángulo, canal por canal (cada uno de 0 a 1).
+// R, G y B se promedian por separado entre los píxeles del bloque; nunca se mezclan entre sí.
+function getBlockColor(pixels, startX, endX, startY, endY) {
+    let red = 0;
+    let green = 0;
+    let blue = 0;
+    for (let y = startY; y < endY; y += 1) {
+        for (let x = startX; x < endX; x += 1) {
+            const pixelIndex = (y * pixels.width + x) * 4;
+            red += pixels.data[pixelIndex];
+            green += pixels.data[pixelIndex + 1];
+            blue += pixels.data[pixelIndex + 2];
+        }
+    }
+    const total = (endX - startX) * (endY - startY) * 255;
+    return { red: red / total, green: green / total, blue: blue / total };
+}
+
+// Matiz: 0 = rojo, 1/6 = amarillo, 1/3 = verde, 1/2 = cian, 2/3 = azul, 5/6 = violeta.
+// Intensidad del color: 0 = gris, negro o blanco; 1 = color puro (máximo − mínimo de los canales).
+function getHueAndColorfulness({ red, green, blue }) {
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const colorfulness = max - min;
+    if (colorfulness === 0) return { hue: 0, colorfulness };
+    let hue;
+    if (max === red) hue = ((green - blue) / colorfulness + 6) % 6;
+    else if (max === green) hue = (blue - red) / colorfulness + 2;
+    else hue = (red - green) / colorfulness + 4;
+    return { hue: hue / 6, colorfulness };
+}
+
+// Nota de un bloque: la posición da la frecuencia base, el matiz la sube hasta una octava
+// (rojo = base, violeta = casi una octava arriba) y la intensidad del color define el volumen
+// (los grises suenan suave y los colores vivos, fuerte).
+function getBlockNote(pixels, startX, endX, startY, endY, position) {
+    const { hue, colorfulness } = getHueAndColorfulness(getBlockColor(pixels, startX, endX, startY, endY));
     return {
-        x: Math.max(0, Math.min(1, (pos.x * window.innerWidth - bounds.left) / Math.max(1, bounds.width))),
-        y: Math.max(0, Math.min(1, (pos.y * window.innerHeight - bounds.top) / Math.max(1, bounds.height)))
+        frequency: getScaleFrequency(position) * Math.pow(2, hue),
+        volume: minColorVolume + (1 - minColorVolume) * colorfulness
     };
 }
 
-function getColumnFrequencies(column) {
-    const columns = getTotalColumns();
-    const columnWidth = canvas.width / columns;
-    const startX = Math.floor(column * columnWidth);
-    const endX = Math.max(startX + 1, Math.floor((column + 1) * columnWidth));
+// position 0 = frecuencia máxima, position 1 = frecuencia mínima (escala logarítmica).
+function getScaleFrequency(position) {
     const minFrequency = Number(minFrequencyRange.value);
     const maxFrequency = Math.max(minFrequency, Number(maxFrequencyRange.value));
-    const frequencies = [];
-    const rowHeight = canvas.height / getTotalRows();
-    const pixels = ctx.getImageData(startX, 0, endX - startX, canvas.height).data;
-
-    for (let row = 0; row < getTotalRows(); row += 1) {
-        const startY = Math.floor(row * rowHeight);
-        const endY = Math.max(startY + 1, Math.floor((row + 1) * rowHeight));
-        let brightnessTotal = 0;
-        let pixelCount = 0;
-
-        for (let y = startY; y < endY; y += 1) {
-            for (let x = 0; x < endX - startX; x += 1) {
-                const pixelIndex = (y * (endX - startX) + x) * 4;
-                brightnessTotal += (pixels[pixelIndex] + pixels[pixelIndex + 1] + pixels[pixelIndex + 2]) / (3 * 255);
-                pixelCount += 1;
-            }
-        }
-
-        const brightness = brightnessTotal / pixelCount;
-        if (brightness <= darknessThreshold) {
-            const verticalPosition = row / Math.max(1, getTotalRows() - 1);
-            frequencies.push(maxFrequency * Math.pow(minFrequency / maxFrequency, verticalPosition));
-        }
-    }
-
-    return frequencies;
+    return maxFrequency * Math.pow(minFrequency / maxFrequency, position);
 }
 
-function getRowFrequencies(row) {
-    const rowHeight = canvas.height / getTotalRows();
-    const startY = Math.floor(row * rowHeight);
-    const endY = Math.max(startY + 1, Math.floor((row + 1) * rowHeight));
-    const frequencies = [];
-    const columnWidth = canvas.width / getTotalColumns();
-    const pixels = ctx.getImageData(0, startY, canvas.width, endY - startY).data;
-    for (let column = 0; column < getTotalColumns(); column += 1) {
-        const startX = Math.floor(column * columnWidth);
-        const endX = Math.max(startX + 1, Math.floor((column + 1) * columnWidth));
-        let brightnessTotal = 0;
-        let pixelCount = 0;
-        for (let y = 0; y < endY - startY; y += 1) {
-            for (let x = startX; x < endX; x += 1) {
-                const pixelIndex = (y * canvas.width + x) * 4;
-                brightnessTotal += (pixels[pixelIndex] + pixels[pixelIndex + 1] + pixels[pixelIndex + 2]) / (3 * 255);
-                pixelCount += 1;
-            }
-        }
-        if (brightnessTotal / pixelCount <= darknessThreshold) {
-            const verticalPosition = column / Math.max(1, getTotalColumns() - 1);
-            frequencies.push(
-                Number(maxFrequencyRange.value) *
-                Math.pow(Number(minFrequencyRange.value) / Number(maxFrequencyRange.value), verticalPosition)
-            );
-        }
+// Notas de una columna: cada fila suena; arriba = agudo, abajo = grave.
+function getColumnNotes(column) {
+    const { pixels } = getFilteredImage();
+    const rows = getTotalRows();
+    const [startX, endX] = getBlockBounds(column, getTotalColumns(), pixels.width);
+    const notes = [];
+    for (let row = 0; row < rows; row += 1) {
+        const [startY, endY] = getBlockBounds(row, rows, pixels.height);
+        notes.push(getBlockNote(pixels, startX, endX, startY, endY, row / Math.max(1, rows - 1)));
     }
-    return frequencies;
+    return notes;
+}
+
+// Notas de una fila: cada columna suena; izquierda = agudo, derecha = grave.
+function getRowNotes(row) {
+    const { pixels } = getFilteredImage();
+    const columns = getTotalColumns();
+    const [startY, endY] = getBlockBounds(row, getTotalRows(), pixels.height);
+    const notes = [];
+    for (let column = 0; column < columns; column += 1) {
+        const [startX, endX] = getBlockBounds(column, columns, pixels.width);
+        notes.push(getBlockNote(pixels, startX, endX, startY, endY, column / Math.max(1, columns - 1)));
+    }
+    return notes;
 }
 
 async function generateSpectrogramFromSamples(samples, sampleRate) {
@@ -1152,20 +1443,19 @@ async function generateSpectrogramFromSamples(samples, sampleRate) {
     const imageData = ctx.createImageData(width, height);
     const minDb = -80;
     const maxDb = -10;
+    const { minFrequency, maxFrequency } = getVisualFrequencyRange();
     for (let x = 0; x < width; x += 1) {
         const center = Math.floor((x / Math.max(1, width - 1)) * Math.max(0, samples.length - 1));
-        const window = new Float32Array(fftSize);
+        const windowedSamples = new Float32Array(fftSize);
         for (let i = 0; i < fftSize; i += 1) {
             const index = center - Math.floor(fftSize / 2) + i;
             if (index >= 0 && index < samples.length) {
-                window[i] = samples[index] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (fftSize - 1)));
+                windowedSamples[i] = samples[index] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (fftSize - 1)));
             }
         }
-        const magnitudes = performFft(window);
+        const magnitudes = performFft(windowedSamples);
         for (let y = 0; y < height; y += 1) {
-            const frequency = getVisualFrequencyRange().maxFrequency *
-                Math.pow(getVisualFrequencyRange().minFrequency / getVisualFrequencyRange().maxFrequency,
-                    y / Math.max(1, height - 1));
+            const frequency = maxFrequency * Math.pow(minFrequency / maxFrequency, y / Math.max(1, height - 1));
             const bin = Math.max(0, Math.min(magnitudes.length - 1,
                 Math.round(frequency * fftSize / sampleRate)));
             const db = 20 * Math.log10(Math.max(magnitudes[bin], 1e-8));
@@ -1177,13 +1467,11 @@ async function generateSpectrogramFromSamples(samples, sampleRate) {
             imageData.data[offset + 3] = 255;
         }
         if (x % 16 === 0) {
-            spectrogramImageData = imageData;
-            renderSpectrogram();
+            setSpectrogramImageData(imageData);
             await new Promise((resolve) => requestAnimationFrame(resolve));
         }
     }
-    spectrogramImageData = imageData;
-    renderSpectrogram();
+    setSpectrogramImageData(imageData);
 }
 
 function getScanAxis() {
@@ -1192,92 +1480,193 @@ function getScanAxis() {
 
 function getScanStepCount() {
     if (getScanAxis() === 'y') return getTotalRows();
-    if (getScanAxis() === 'xy') return Math.max(getTotalColumns(), getTotalRows());
     return getTotalColumns();
 }
 
-function getScanFrequencies(step, rowStep = step) {
-    if (getScanAxis() === 'x') return getColumnFrequencies(step);
-    if (getScanAxis() === 'y') return getRowFrequencies(step);
-    return [
-        getColumnFrequencies(Math.min(getTotalColumns() - 1, step)),
-        getRowFrequencies(Math.min(getTotalRows() - 1, rowStep))
-    ].flat();
+// Notas que suenan en un paso: como máximo `maxNotesPerStep`, eligiendo los bloques de color más intenso.
+// Cada nota trae su frecuencia y su velocity (0 a 1). La velocity se divide por la raíz de la cantidad
+// de notas: así varias notas juntas suenan fuertes, y el limitador se encarga de que no se distorsione.
+function getScanNotes(step, rowStep = step) {
+    const axis = getScanAxis();
+    let notes;
+    if (axis === 'x') notes = getColumnNotes(step);
+    else if (axis === 'y') notes = getRowNotes(step);
+    else {
+        notes = [
+            ...getColumnNotes(Math.min(getTotalColumns() - 1, step)),
+            ...getRowNotes(Math.min(getTotalRows() - 1, rowStep))
+        ];
+    }
+    const strongest = notes
+        .sort((first, second) => second.volume - first.volume)
+        .slice(0, maxNotesPerStep);
+    return strongest.map((note) => ({
+        frequency: note.frequency,
+        velocity: note.volume / Math.sqrt(strongest.length)
+    }));
+}
+
+// Toca todas las notas de un paso a la vez; cada una con su propio volumen.
+function triggerNotes(toneSynth, notes, durationSeconds, time) {
+    notes.forEach((note) => toneSynth.triggerAttackRelease(note.frequency, durationSeconds, time, note.velocity));
+}
+
+function playScanStep(notes, durationMs) {
+    const s = startAudio();
+    if (s && notes.length) triggerNotes(s, notes, durationMs / 1000 * 0.9, Tone.now());
 }
 
 function scanNextColumn() {
     if (!isPlaying || !mediaLoaded) return;
     const axis = getScanAxis();
-    const now = performance.now();
-    let shouldAdvanceX = false;
-    let shouldAdvanceY = false;
     if (axis === 'xy') {
-        shouldAdvanceX = now >= scanNextXAt && scanColumn < getTotalColumns();
-        shouldAdvanceY = now >= scanNextYAt && scanRow < getTotalRows();
-        if (shouldAdvanceX) scanNextXAt = now + Number(speedRange.value);
-        if (shouldAdvanceY) scanNextYAt = now + Number(speedYRange.value);
-    } else if (currentColumn >= getScanStepCount()) {
+        scanNextXYStep();
+        return;
+    }
+    if (currentColumn >= getScanStepCount()) {
         stopScanning();
         return;
-    } else if (axis === 'x') {
-        shouldAdvanceX = true;
-    } else {
-        shouldAdvanceY = true;
     }
-    if (axis === 'xy' && !shouldAdvanceX && !shouldAdvanceY) {
-        scanTimer = setTimeout(scanNextColumn, Math.max(1, Math.min(
-            scanNextXAt - now, scanNextYAt - now
-        )));
-        return;
-    }
-    if (shouldAdvanceX) scanColumn = Math.min(getTotalColumns() - 1, scanColumn + (scanColumn === 0 ? 0 : 1));
-    if (shouldAdvanceY) scanRow = Math.min(getTotalRows() - 1, scanRow + (scanRow === 0 ? 0 : 1));
-    const column = axis === 'y' ? 0 : currentColumn;
-    const row = axis === 'x' ? 0 : currentColumn;
-    const frequencies = getScanFrequencies(
-        axis === 'xy' ? scanColumn : column,
-        axis === 'xy' ? scanRow : row
-    );
-    const s = startAudio();
-    if (s && frequencies.length) {
-        s.triggerAttackRelease(frequencies, getScanSpeed(axis === 'y' ? 'y' : 'x') / 1000 * 0.9);
-    }
-    drawMedia(axis === 'xy' ? scanColumn : currentColumn, axis, axis === 'xy' ? scanRow : row);
+    // En el eje X currentColumn es la columna; en el eje Y es la fila.
+    playScanStep(getScanNotes(currentColumn), getScanSpeed(axis));
+    drawMedia(currentColumn, axis);
     currentColumn += 1;
-    if (axis === 'xy') {
-        if (scanColumn >= getTotalColumns() - 1 && scanRow >= getTotalRows() - 1) {
-            stopScanning();
-            return;
-        }
-        scanTimer = setTimeout(scanNextColumn, 1);
-    } else {
-        scanTimer = setTimeout(scanNextColumn, getScanSpeed(axis));
-    }
+    scanTimer = setTimeout(scanNextColumn, getScanSpeed(axis));
 }
 
-function scanFreeColumn() {
-    if (!isPlaying || !mediaLoaded) return;
-    const cursorPosition = getCursorCanvasPosition();
-    const column = Math.max(0, Math.min(
-        getTotalColumns() - 1, Math.floor(cursorPosition.x * getTotalColumns())
-    ));
-    const row = Math.max(0, Math.min(
-        getTotalRows() - 1, Math.floor(cursorPosition.y * getTotalRows())
-    ));
-    const step = getScanAxis() === 'y' ? row : column;
-    const positionKey = `${column}:${row}:${getScanAxis()}`;
-    drawMedia(
-        getScanAxis() === 'y' ? cursorPosition.y * getTotalRows() : column,
-        getScanAxis(),
-        cursorPosition.y * getTotalRows()
-    );
-    if (positionKey !== freeScanLastColumn) {
-        const frequencies = getScanFrequencies(column, row);
-        const s = startAudio();
-        if (s && frequencies.length) s.triggerAttackRelease(frequencies, getScanStepSpeed(step) / 1000 * 0.9);
-        freeScanLastColumn = positionKey;
+// Eje X + Y: columnas y filas avanzan cada una a su propia velocidad.
+// scanColumn y scanRow parten en -1, así el primer avance las deja en 0.
+function scanNextXYStep() {
+    const now = performance.now();
+    const columnsLeft = scanColumn < getTotalColumns() - 1;
+    const rowsLeft = scanRow < getTotalRows() - 1;
+    if (!columnsLeft && !rowsLeft) {
+        stopScanning();
+        return;
     }
-    scanTimer = setTimeout(scanFreeColumn, getScanStepSpeed(step));
+    const advanceX = columnsLeft && now >= scanNextXAt;
+    const advanceY = rowsLeft && now >= scanNextYAt;
+    if (advanceX) {
+        scanColumn += 1;
+        scanNextXAt = now + Number(speedRange.value);
+    }
+    if (advanceY) {
+        scanRow += 1;
+        scanNextYAt = now + Number(speedYRange.value);
+    }
+    if (advanceX || advanceY) {
+        playScanStep(getScanNotes(scanColumn, scanRow), getScanSpeed('xy'));
+        drawMedia(scanColumn, 'xy', scanRow);
+    }
+    // Se espera solo al eje que todavía tiene pasos pendientes.
+    const waitX = scanColumn < getTotalColumns() - 1 ? scanNextXAt - now : Infinity;
+    const waitY = scanRow < getTotalRows() - 1 ? scanNextYAt - now : Infinity;
+    const wait = Math.min(waitX, waitY);
+    const lastStepWait = Math.max(Number(speedRange.value), Number(speedYRange.value));
+    scanTimer = setTimeout(scanNextColumn, Number.isFinite(wait) ? Math.max(1, wait) : lastStepWait);
+}
+
+function isFreeModeActive() {
+    return isPlaying && mediaLoaded && mediaType === 'image' && freeModeToggle.checked;
+}
+
+// Bloque de la imagen que está bajo el cursor (mouse o mano), o null si el cursor está fuera de la imagen
+// o si hay algo encima de ella en ese punto (por ejemplo, la ventana de MediaPipe o la de ajustes).
+function getCursorBlock() {
+    const bounds = canvas.getBoundingClientRect();
+    const pos = getActiveCursorPosition();
+    const screenX = pos.x * window.innerWidth;
+    const screenY = pos.y * window.innerHeight;
+    const x = (screenX - bounds.left) / bounds.width;
+    const y = (screenY - bounds.top) / bounds.height;
+    if (!bounds.width || !bounds.height || x < 0 || x >= 1 || y < 0 || y >= 1) return null;
+    if (document.elementFromPoint(screenX, screenY) !== canvas) return null;
+    return {
+        column: Math.floor(x * getTotalColumns()),
+        row: Math.floor(y * getTotalRows())
+    };
+}
+
+// Identifica el bloque según el eje: en el eje X solo importa la columna y en el eje Y solo la fila.
+// Así, mover el cursor dentro de la misma columna (eje X) no vuelve a disparar la nota.
+function getFreeBlockKey(block) {
+    if (!block) return null;
+    const axis = getScanAxis();
+    if (axis === 'x') return `x:${block.column}`;
+    if (axis === 'y') return `y:${block.row}`;
+    return `xy:${block.column}:${block.row}`;
+}
+
+// Dibuja la barra en el bloque bajo el cursor, como máximo una vez por cuadro de pantalla
+// (dibujar más seguido no se alcanza a ver y solo gasta trabajo).
+function requestFreeModeDraw() {
+    if (freeModeDrawFrame) return;
+    freeModeDrawFrame = requestAnimationFrame(() => {
+        freeModeDrawFrame = null;
+        if (!isFreeModeActive()) return;
+        const axis = getScanAxis();
+        const block = getCursorBlock();
+        if (block) drawMedia(axis === 'y' ? block.row : block.column, axis, block.row);
+        else drawMedia();
+    });
+}
+
+// En modo libre solo suena mientras se mantiene el clic (o la mano cerrada) sobre la imagen.
+function isFreeModePressed() {
+    return freeModeMousePressed || freeModeHandClosed;
+}
+
+// Al soltar el clic (o abrir la mano) se cancela el pulso y la nota pendiente: queda en silencio.
+function stopFreeModeNotes() {
+    if (isFreeModePressed()) return;
+    clearTimeout(scanTimer);
+    scanTimer = null;
+}
+
+// Dibuja la barra en el bloque bajo el cursor (aunque no se esté haciendo clic) y, si se mantiene
+// el clic, toca ese bloque y se vuelve a programar para repetir la nota como un pulso.
+// Fuera de la imagen hay silencio y no se dibuja la barra.
+// Para no saturar el audio al mover el mouse muy rápido, las notas se tocan como máximo cada
+// `minFreeNoteInterval` ms; si el cursor cruza varios bloques en ese tiempo, suena el último.
+function playFreeBlock() {
+    clearTimeout(scanTimer);
+    scanTimer = null;
+    if (!isFreeModeActive()) return;
+    const axis = getScanAxis();
+    const block = getCursorBlock();
+    lastFreeScanKey = getFreeBlockKey(block);
+    requestFreeModeDraw();
+    if (!block || !isFreeModePressed()) return;
+
+    const wait = lastFreeNoteTime + minFreeNoteInterval - performance.now();
+    if (wait > 0) {
+        scanTimer = setTimeout(playFreeBlock, wait);
+        return;
+    }
+    lastFreeNoteTime = performance.now();
+    const step = axis === 'y' ? block.row : block.column;
+    playScanStep(getScanNotes(step, block.row), getScanSpeed(axis));
+    scanTimer = setTimeout(playFreeBlock, Math.max(minFreeNoteInterval, getScanSpeed(axis)));
+}
+
+// Se llama cada vez que el cursor se mueve: si entró a otro bloque, suena sin esperar el pulso.
+function handleFreeCursorMove() {
+    if (!isFreeModeActive()) return;
+    if (getFreeBlockKey(getCursorBlock()) !== lastFreeScanKey) playFreeBlock();
+}
+
+// El modo libre solo tiene sentido con imágenes: con un audio cargado la casilla queda deshabilitada.
+function updateFreeModeToggle() {
+    const disabled = mediaType === 'audio';
+    freeModeToggle.disabled = disabled;
+    freeModeToggle.closest('label').classList.toggle('opacity-50', disabled);
+    // En pantallas táctiles, arrastrar el dedo sobre la imagen mueve la barra en vez de desplazar la página.
+    canvas.classList.toggle('free-mode-canvas', freeModeToggle.checked && !disabled);
+}
+
+// El modo libre no necesita Play: si está marcado y hay una imagen, la barra empieza a seguir al cursor.
+function startFreeModeIfEnabled() {
+    if (freeModeToggle.checked && mediaLoaded && mediaType === 'image' && !isPlaying) startScanning();
 }
 
 function startScanning() {
@@ -1293,14 +1682,14 @@ function startScanning() {
     isPlaying = true;
     playPauseButton.innerText = 'Pause';
     stopButton.disabled = false;
-    freeScanLastColumn = -1;
+    lastFreeScanKey = null;
     currentColumn = 0;
-    scanColumn = 0;
-    scanRow = 0;
+    scanColumn = -1;
+    scanRow = -1;
     const now = performance.now();
     scanNextXAt = now;
     scanNextYAt = now;
-    if (freeModeToggle.checked) scanFreeColumn();
+    if (freeModeToggle.checked) playFreeBlock();
     else scanNextColumn();
 }
 
@@ -1316,57 +1705,60 @@ function stopScanning() {
     pauseScanning();
     if (mediaType === 'audio') audioPlaybackOffset = 0;
     currentColumn = 0;
-    freeScanLastColumn = -1;
+    lastFreeScanKey = null;
     stopButton.disabled = !mediaLoaded;
     if (mediaLoaded && mediaType === 'image') drawMedia();
-}
-
-function createAudioBufferFromSamples(samples, sampleRate) {
-    audioPlaybackContext = audioPlaybackContext || new AudioContext();
-    const buffer = audioPlaybackContext.createBuffer(1, samples.length, sampleRate);
-    buffer.copyToChannel(samples, 0);
-    return buffer;
+    if (mediaLoaded && mediaType === 'audio') renderSpectrogram();
 }
 
 async function convertMedia() {
     if (!mediaLoaded || downloadInProgress) return;
     stopScanning();
     downloadInProgress = true;
-    updateDownloadButtons();
+    // Mientras se convierte no se puede reproducir, para no mezclar la imagen con el audio a medio generar.
+    playPauseButton.disabled = true;
+    stopButton.disabled = true;
+    updateMediaControls();
     try {
         if (mediaType === 'image') {
-            const { samples, sampleRate } = renderImageAudioSamples();
-            audioBuffer = createAudioBufferFromSamples(samples, sampleRate);
-            audioFile = null;
+            setMediaStatus('Convirtiendo imagen a audio...');
+            const renderedBuffer = await renderImageAudioBuffer();
+            audioBuffer = renderedBuffer;
             mediaSource = null;
             mediaType = 'audio';
-            await generateSpectrogramFromSamples(samples, sampleRate);
-            currentColumn = 0;
+            await generateSpectrogramFromSamples(renderedBuffer.getChannelData(0), renderedBuffer.sampleRate);
+            setMediaStatus('Imagen convertida a audio.');
         } else {
             const image = new Image();
             await new Promise((resolve, reject) => {
                 image.onload = resolve;
-                image.onerror = reject;
+                image.onerror = () => reject(new Error('No se pudo crear la imagen del espectrograma.'));
                 image.src = canvas.toDataURL('image/png');
             });
             mediaSource = image;
             mediaType = 'image';
-            audioFile = null;
             spectrogramImageData = null;
             drawMedia();
-            currentColumn = 0;
+            setMediaStatus('Audio convertido a imagen.');
         }
+        currentColumn = 0;
+    } catch (error) {
+        setMediaStatus(error.message);
+        console.error('Error al convertir:', error);
     } finally {
         downloadInProgress = false;
         playPauseButton.disabled = false;
         stopButton.disabled = false;
-        updateDownloadButtons();
+        updateMediaControls();
+        startFreeModeIfEnabled();
     }
 }
 
 async function handleMediaSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
+    // Cada archivo nuevo recibe un número; las cargas anteriores que terminen tarde se ignoran.
+    const generationId = ++mediaGenerationId;
     if (mediaObjectUrl) URL.revokeObjectURL(mediaObjectUrl);
     mediaObjectUrl = URL.createObjectURL(file);
     updateUploadLabel(file);
@@ -1374,57 +1766,51 @@ async function handleMediaSelection(event) {
     mediaLoaded = false;
     mediaType = null;
     audioBuffer = null;
-    audioFile = null;
     audioPlaybackOffset = 0;
     spectrogramImageData = null;
+    // Los botones se activan cuando el archivo termina de cargarse.
+    playPauseButton.disabled = true;
+    stopButton.disabled = true;
+    updateMediaControls();
 
     if (isAudioFile(file)) {
-        audioFile = file;
-        playPauseButton.disabled = false;
-        stopButton.disabled = false;
-        updateDownloadButtons();
         try {
-            await generarEspectrogramaOffline(file);
+            await generarEspectrogramaOffline(file, generationId);
         } catch (error) {
-            mediaUploadZone.querySelector('span:nth-child(3)').innerText = 'No se pudo leer el audio.';
+            if (generationId !== mediaGenerationId) return;
+            setMediaStatus('No se pudo leer el audio.');
             console.error('Error al generar el espectrograma:', error);
         }
         return;
     }
 
     if (!file.type.startsWith('image/')) {
-        mediaUploadZone.querySelector('span:nth-child(3)').innerText = 'Formato no compatible.';
-        updateDownloadButtons();
+        setMediaStatus('Formato no compatible.');
         return;
     }
 
     const img = new Image();
+    img.onerror = () => {
+        if (generationId === mediaGenerationId) setMediaStatus('No se pudo leer la imagen.');
+    };
     img.onload = () => {
+        if (generationId !== mediaGenerationId) return;
         mediaSource = img;
         mediaLoaded = true;
         mediaType = 'image';
         drawMedia();
         playPauseButton.disabled = false;
         stopButton.disabled = false;
-        updateDownloadButtons();
+        updateMediaControls();
+        startFreeModeIfEnabled();
     };
     img.src = mediaObjectUrl;
 }
 
 function updateSettings() {
-    resValue.innerText = resolutionRange.value;
-    rowsValue.innerText = rowsRange.value;
-    speedValue.innerText = speedRange.value;
-    speedYValue.innerText = speedYRange.value;
-    attackValue.innerText = `${attackRange.value}s`;
-    releaseValue.innerText = `${releaseRange.value}s`;
-    minFrequencyValue.innerText = `${minFrequencyRange.value}Hz`;
-    maxFrequencyValue.innerText = `${maxFrequencyRange.value}Hz`;
-    volumeValue.innerText = `${Math.round(Number(volumeRange.value) * 100)}%`;
-    reverbValue.innerText = `${Math.round(Number(reverbRange.value) * 100)}%`;
-    imageBrightnessValue.innerText = `${imageBrightnessRange.value}%`;
-    imageContrastValue.innerText = `${imageContrastRange.value}%`;
-    imageOpacityValue.innerText = `${imageOpacityRange.value}%`;
+    sliderControls.forEach(({ range, valueElement, format }) => {
+        valueElement.innerText = format(range.value);
+    });
 
     if (synth) {
         synth.set({
@@ -1453,26 +1839,40 @@ downloadButton.addEventListener('click', () => {
     else downloadCanvasAsPng();
 });
 convertButton.addEventListener('click', convertMedia);
+// El modo libre no necesita Play: al marcarlo la barra sigue al cursor y al desmarcarlo se detiene.
 freeModeToggle.addEventListener('change', () => {
-    if (!isPlaying) return;
-    pauseScanning();
-    startScanning();
+    stopScanning();
+    updateFreeModeToggle();
+    startFreeModeIfEnabled();
 });
 
-resolutionRange.addEventListener('input', updateSettings);
-speedRange.addEventListener('input', updateSettings);
-rowsRange.addEventListener('input', updateSettings);
-speedYRange.addEventListener('input', updateSettings);
+// Modo libre: suena mientras se mantiene el clic (o el dedo, en pantallas táctiles) sobre la imagen.
+canvas.addEventListener('pointerdown', (event) => {
+    if (!isFreeModeActive() || event.button !== 0) return;
+    event.preventDefault();
+    nativeCursorPosition = {
+        x: event.clientX / window.innerWidth,
+        y: event.clientY / window.innerHeight
+    };
+    freeModeMousePressed = true;
+    playFreeBlock();
+});
+const releaseFreeModeMouse = () => {
+    if (!freeModeMousePressed) return;
+    freeModeMousePressed = false;
+    stopFreeModeNotes();
+};
+window.addEventListener('pointerup', releaseFreeModeMouse);
+window.addEventListener('pointercancel', releaseFreeModeMouse);
+window.addEventListener('blur', releaseFreeModeMouse);
+window.addEventListener('resize', fitCanvasToView);
+
+sliderControls.forEach(({ range, valueElement, learnButton }) => {
+    range.addEventListener('input', updateSettings);
+    makeValueEditable(valueElement, range);
+    learnButton.addEventListener('click', () => startMidiLearn(range, learnButton));
+});
 waveTypeSelect.addEventListener('change', updateSettings);
-attackRange.addEventListener('input', updateSettings);
-releaseRange.addEventListener('input', updateSettings);
-minFrequencyRange.addEventListener('input', updateSettings);
-maxFrequencyRange.addEventListener('input', updateSettings);
-volumeRange.addEventListener('input', updateSettings);
-reverbRange.addEventListener('input', updateSettings);
-imageBrightnessRange.addEventListener('input', updateSettings);
-imageContrastRange.addEventListener('input', updateSettings);
-imageOpacityRange.addEventListener('input', updateSettings);
 scanAxis.addEventListener('change', () => {
     const wasPlaying = isPlaying;
     stopScanning();
@@ -1480,32 +1880,6 @@ scanAxis.addEventListener('change', () => {
 });
 midiToggleButton.addEventListener('click', toggleMidi);
 midiInputSelect.addEventListener('change', connectMidiInput);
-learnBrightnessMidi.addEventListener('click', () => startMidiLearn(imageBrightnessRange, learnBrightnessMidi));
-learnContrastMidi.addEventListener('click', () => startMidiLearn(imageContrastRange, learnContrastMidi));
-learnOpacityMidi.addEventListener('click', () => startMidiLearn(imageOpacityRange, learnOpacityMidi));
-learnResolutionMidi.addEventListener('click', () => startMidiLearn(resolutionRange, learnResolutionMidi));
-learnSpeedMidi.addEventListener('click', () => startMidiLearn(speedRange, learnSpeedMidi));
-learnRowsMidi.addEventListener('click', () => startMidiLearn(rowsRange, learnRowsMidi));
-learnSpeedYMidi.addEventListener('click', () => startMidiLearn(speedYRange, learnSpeedYMidi));
-learnAttackMidi.addEventListener('click', () => startMidiLearn(attackRange, learnAttackMidi));
-learnReleaseMidi.addEventListener('click', () => startMidiLearn(releaseRange, learnReleaseMidi));
-learnMinFrequencyMidi.addEventListener('click', () => startMidiLearn(minFrequencyRange, learnMinFrequencyMidi));
-learnMaxFrequencyMidi.addEventListener('click', () => startMidiLearn(maxFrequencyRange, learnMaxFrequencyMidi));
-learnVolumeMidi.addEventListener('click', () => startMidiLearn(volumeRange, learnVolumeMidi));
-learnReverbMidi.addEventListener('click', () => startMidiLearn(reverbRange, learnReverbMidi));
-makeValueEditable(resValue, resolutionRange);
-makeValueEditable(rowsValue, rowsRange);
-makeValueEditable(speedValue, speedRange);
-makeValueEditable(speedYValue, speedYRange);
-makeValueEditable(attackValue, attackRange);
-makeValueEditable(releaseValue, releaseRange);
-makeValueEditable(minFrequencyValue, minFrequencyRange);
-makeValueEditable(maxFrequencyValue, maxFrequencyRange);
-makeValueEditable(volumeValue, volumeRange);
-makeValueEditable(reverbValue, reverbRange);
-makeValueEditable(imageBrightnessValue, imageBrightnessRange);
-makeValueEditable(imageContrastValue, imageContrastRange);
-makeValueEditable(imageOpacityValue, imageOpacityRange);
 soundSettingsTab.addEventListener('click', () => setSettingsTab(
     soundSettingsTab, soundSettingsPanel, visualSettingsTab, visualSettingsPanel
 ));
@@ -1558,10 +1932,19 @@ settingsHeader.addEventListener('pointerdown', (event) => {
 });
 settingsHeader.addEventListener('pointermove', (event) => {
     if (!settingsDragState) return;
-    settingsWindow.style.left = `${event.clientX - settingsDragState.offsetX}px`;
-    settingsWindow.style.top = `${event.clientY - settingsDragState.offsetY}px`;
+    // Se limita la posición para que la barra de arrastre nunca quede fuera de la pantalla.
+    const visibleMargin = 80;
+    const minLeft = visibleMargin - settingsWindow.offsetWidth;
+    const maxLeft = window.innerWidth - visibleMargin;
+    const maxTop = window.innerHeight - settingsHeader.offsetHeight;
+    const left = Math.max(minLeft, Math.min(maxLeft, event.clientX - settingsDragState.offsetX));
+    const top = Math.max(0, Math.min(maxTop, event.clientY - settingsDragState.offsetY));
+    settingsWindow.style.left = `${left}px`;
+    settingsWindow.style.top = `${top}px`;
 });
-settingsHeader.addEventListener('pointerup', () => { settingsDragState = null; });
+const endSettingsDrag = () => { settingsDragState = null; };
+settingsHeader.addEventListener('pointerup', endSettingsDrag);
+settingsHeader.addEventListener('pointercancel', endSettingsDrag);
 
 function updateClock() {
     const now = new Date();
