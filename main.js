@@ -164,7 +164,7 @@ const clickSoundVolume = 0.3;
 const maxExportSeconds = 5 * 60;
 const maxImageWidth = 1200;
 const mediaPipeHandsUrl = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240';
-const demoImageUrl = 'assets/demo.png';
+const demoImageUrl = 'assets/imagen-fija.jpg';
 
 // Water drop sound effect using Tone.js (un solo synth reutilizado para no acumular memoria)
 function getDropSynth() {
@@ -1878,7 +1878,7 @@ function loadDemoImage() {
             return;
         }
         const fileName = mediaUploadZone.querySelector('.media-file-name');
-        fileName.innerText = 'demo.png (ejemplo)';
+        fileName.innerText = 'imagen-fija.jpg (ejemplo)';
         fileName.title = fileName.innerText;
         setMediaStatus('Imagen de ejemplo. Carga un archivo para reemplazarla.');
         playPauseButton.disabled = false;
@@ -1995,7 +1995,14 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
-document.getElementById('messageBoardButton').addEventListener('click', () => openModal(messageBoardModal));
+const messageBoardButton = document.getElementById('messageBoardButton');
+messageBoardButton.addEventListener('click', () => openModal(messageBoardModal));
+messageBoardButton.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openModal(messageBoardModal);
+    }
+});
 document.getElementById('messageBoardConfirmButton').addEventListener('click', () => closeModal(messageBoardModal));
 
 // Dragging for Settings Window

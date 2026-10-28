@@ -25,10 +25,10 @@
     <!-- Top Status Bar / Header -->
     <header id="appHeader" class="app-header w-full px-6 py-4 flex justify-between items-center z-10">
         <div class="flex items-center space-x-3">
-            <button id="headerMenuButton" class="wii-btn wii-btn-compact gap-1.5 text-sm tracking-wider cursor-pointer">
+            <a id="headerMenuButton" href="https://github.com/Estrabismx/dis90987-tarea06" target="_blank" rel="noopener noreferrer" class="wii-btn wii-btn-compact gap-1.5 text-sm tracking-wider cursor-pointer" title="Repositorio de la web en GitHub">
                 <span>LID</span>
                 <span class="wii-btn-tag text-xs bg-white text-blue-700 px-1.5 py-0.5 rounded-full font-bold">MENU</span>
-            </button>
+            </a>
             <h1 id="appTitleHeader" class="text-gray-700 font-bold text-lg drop-shadow-sm">Traductor de bits - Audio & Imagen</h1>
         </div>
         <div class="flex items-center space-x-4">
@@ -88,31 +88,41 @@
         </div>
     </main>
 
-    <!-- Barra inferior: la dibuja fondo.jpg. Cada botón se ubica sobre la barra con las coordenadas
-         (--x, --y en píxeles de fondo.jpg) y su diámetro (--d). -->
+    <!-- Barra inferior estilo Wii (basada en referencia-fondo/) -->
     <footer id="appFooter" class="app-footer">
-        <!-- Hueco izquierdo: Instagram de LID -->
-        <a id="footerHomeButton" href="https://www.instagram.com/lid.udp/" target="_blank" rel="noopener noreferrer" class="fondo-spot fondo-left fondo-round-button cursor-pointer" style="--x: 118; --y: 770; --d: 140;" aria-label="Instagram de LID" title="Instagram de LID">
-            <span>LID</span>
-        </a>
+        <div class="wii-bottom-dock">
+            <!-- Pestaña central: fecha y tablón de mensajes -->
+            <div id="messageBoardButton" role="button" tabindex="0" class="wii-dock-board flex flex-col items-center cursor-pointer" aria-label="Tablón de mensajes">
+                <div class="relative flex items-center space-x-2 bg-white/90 backdrop-blur-md px-7 py-2.5 rounded-full shadow-md border border-blue-200 hover:border-blue-400 transition">
+                    <span class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-red-500 text-xs font-extrabold text-white shadow-md">!</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span id="dateDisplay" class="text-gray-700 font-bold text-base">...</span>
+                </div>
+            </div>
 
-        <!-- Centro: fecha -->
-        <div class="fondo-date" style="--x: 800; --y: 822;">
-            <span id="dateDisplay">...</span>
+            <!-- Ranura izquierda: Instagram de LID -->
+            <div class="wii-pill-slot">
+                <a id="footerHomeButton" href="https://www.instagram.com/lid.udp/" target="_blank" rel="noopener noreferrer" class="dock-round-button group relative flex items-center justify-center rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" aria-label="Instagram de LID">
+                    <span class="text-blue-600 font-extrabold text-2xl tracking-tighter group-hover:text-blue-700">LID</span>
+                </a>
+            </div>
+
+            <!-- Ranura derecha: MediaPipe y Ajustes -->
+            <div class="wii-pill-slot">
+                <button id="startCameraButton" type="button" class="dock-round-button group relative flex items-center justify-center rounded-full bg-gradient-to-b from-emerald-100 to-white border-4 border-emerald-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" title="Activar/Desactivar MediaPipe">
+                    <span class="text-emerald-600 font-extrabold text-xs leading-tight tracking-tight group-hover:text-emerald-700 text-center px-1">MEDIA PIPE</span>
+                </button>
+
+                <button id="settingsButton" type="button" class="dock-round-button group relative flex items-center justify-center rounded-full bg-gradient-to-b from-white to-gray-200 border-4 border-blue-400 shadow-lg hover:scale-105 active:scale-95 transition cursor-pointer" title="Ajustes de Sonido y Escáner">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-600 group-hover:rotate-45 transition duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
+            </div>
         </div>
-
-        <!-- MediaPipe y Configuración -->
-        <button id="startCameraButton" type="button" class="fondo-spot fondo-right camera-footer-button cursor-pointer" style="--x: 1185; --y: 815; --d: 92;" title="Activar/Desactivar MediaPipe">
-            <span>MEDIA PIPE</span>
-        </button>
-        <button id="settingsButton" type="button" class="fondo-spot fondo-right settings-footer-button cursor-pointer" style="--x: 1306; --y: 772; --d: 108;" title="Ajustes de Sonido y Escáner" aria-label="Ajustes de Sonido y Escáner"></button>
-
-        <!-- Hueco derecho: tablón de mensajes -->
-        <button id="messageBoardButton" type="button" class="fondo-spot fondo-right fondo-round-button cursor-pointer" style="--x: 1492; --y: 770; --d: 140;" aria-label="Tablón de mensajes" title="Tablón de mensajes">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-        </button>
     </footer>
 
     <!-- Modal 1: Web Application Info -->

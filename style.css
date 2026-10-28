@@ -4,50 +4,32 @@ html {
     overflow-x: hidden;
 }
 
-/* Fondo: fondo.jpg (1600x893) cortado en piezas para no agrandarlo nunca (se vería borroso).
-   - fondo-izq.jpg y fondo-der.jpg son sus dos mitades, ancladas abajo a cada lado de la pantalla.
-   - Si la pantalla es más ancha, el centro se rellena repitiendo la columna central (fondo-centro.jpg).
-   - Si es más alta, arriba se repiten las líneas de la franja superior (fondo-banda-*.jpg).
-   --fondo-px es lo que mide en pantalla un píxel de fondo.jpg: como máximo 1px (tamaño real);
-   en pantallas más chicas la imagen se achica para cubrirlas. Los botones del pie usan esta misma medida. */
+/* Fondo estilo Wii hecho solo con CSS (basado en referencia-fondo/):
+   textura de líneas horizontales finas arriba y una barra (dock) gris abajo con una pestaña curva al centro. */
 :root {
-    --fondo-px: min(1px, max(calc(100vw / 1600), calc(100vh / 893)));
-    /* Espacio reservado para el pie: desde justo sobre los botones (y = 695) hasta abajo. */
-    --footer-height: calc(198 * var(--fondo-px));
-}
-
-/* Pantallas verticales (celulares): la barra se ajusta al ancho y queda abajo. */
-@media (max-aspect-ratio: 1/1) {
-    :root {
-        --fondo-px: min(1px, calc(100vw / 1600));
-    }
+    --dock-height: clamp(84px, 12vh, 120px);
+    /* Alto que sobresale la pestaña central sobre la barra. */
+    --dock-tab-height: 30px;
+    /* Espacio reservado para el pie: la barra más la pestaña. */
+    --footer-height: calc(var(--dock-height) + var(--dock-tab-height));
 }
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #f1f1f1;
+    background-color: #ececec;
+    background-image: repeating-linear-gradient(
+        0deg,
+        rgba(215, 215, 215, 0.4) 0px,
+        rgba(215, 215, 215, 0.4) 1px,
+        transparent 1px,
+        transparent 3px
+    );
+    background-attachment: fixed;
     overflow-x: hidden;
     min-height: 100dvh;
     margin: 0;
     padding-bottom: var(--footer-height);
     user-select: none;
-}
-
-/* El fondo va en una capa fija para que la barra dibujada quede siempre bajo los botones del pie. */
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background:
-        url("assets/fondo-izq.jpg") left bottom / calc(800 * var(--fondo-px)) auto no-repeat,
-        url("assets/fondo-der.jpg") right bottom / calc(800 * var(--fondo-px)) auto no-repeat,
-        url("assets/fondo-centro.jpg") center bottom / var(--fondo-px) calc(893 * var(--fondo-px)) repeat-x,
-        url("assets/fondo-banda-izq.jpg") left bottom calc(893 * var(--fondo-px)) / calc(800 * var(--fondo-px)) auto repeat-y,
-        url("assets/fondo-banda-der.jpg") right bottom calc(893 * var(--fondo-px)) / calc(800 * var(--fondo-px)) auto repeat-y,
-        url("assets/fondo-banda-centro.jpg") center bottom calc(893 * var(--fondo-px)) / var(--fondo-px) calc(96 * var(--fondo-px)) repeat,
-        #f0f0f0;
-    pointer-events: none;
 }
 
 *,
@@ -146,12 +128,12 @@ body.camera-mode-active .lid-cursor {
     text-shadow: none;
 }
 
-button.wii-btn:hover:not(:disabled) {
+:is(button, a).wii-btn:hover:not(:disabled) {
     filter: brightness(1.08);
     transform: scale(1.03);
 }
 
-button.wii-btn:active:not(:disabled) {
+:is(button, a).wii-btn:active:not(:disabled) {
     transform: scale(0.97);
 }
 
@@ -161,7 +143,7 @@ button.wii-btn:disabled {
     cursor: not-allowed;
 }
 
-/* Pie de página: los botones se ubican sobre los dibujos de fondo.jpg. */
+/* Pie de página fijo: contiene la barra (dock) y deja arriba el espacio de la pestaña central. */
 #appFooter {
     position: fixed;
     left: 0;
@@ -172,102 +154,109 @@ button.wii-btn:disabled {
     pointer-events: none;
 }
 
-#appFooter > * {
+.wii-bottom-dock {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--dock-height);
+    background: linear-gradient(180deg, #d8d8d8 0%, #cecece 100%);
+    border-top: 3px solid #7cb9e8;
+    box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0 4rem;
     pointer-events: auto;
 }
 
-/* Los botones siguen a la mitad de la barra en que están dibujados:
-   .fondo-left se mide desde el borde izquierdo, .fondo-right desde el derecho y el resto desde el centro. */
-.fondo-spot,
-.fondo-date {
+/* Pestaña curva al centro de la barra; ahí va el tablón de mensajes con la fecha. */
+.wii-bottom-dock::before {
+    content: '';
     position: absolute;
-    left: calc(50% + (var(--x) - 800) * var(--fondo-px));
-    bottom: calc((893 - var(--y)) * var(--fondo-px));
-    transform: translate(-50%, 50%);
+    top: calc(-1 * var(--dock-tab-height));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 45%;
+    height: calc(var(--dock-tab-height) + 5px);
+    background: linear-gradient(180deg, #ececec 0%, #d8d8d8 100%);
+    border-top: 3px solid #7cb9e8;
+    border-radius: 25px 25px 0 0;
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.03);
 }
 
-.fondo-left {
-    left: calc(var(--x) * var(--fondo-px));
+.wii-dock-board {
+    position: absolute;
+    top: calc(-1 * var(--dock-tab-height) - 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
 }
 
-.fondo-right {
-    left: calc(100% - (1600 - var(--x)) * var(--fondo-px));
-}
-
-.fondo-spot {
+/* Ranuras en forma de pastilla con relieve: LID a la izquierda; MediaPipe y Ajustes a la derecha. */
+.wii-pill-slot {
+    position: relative;
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: calc(var(--d) * var(--fondo-px));
-    height: calc(var(--d) * var(--fondo-px));
+    gap: 1rem;
+    min-width: 190px;
+    height: 64px;
+    padding: 0 0.75rem;
+    background: #d4d4d4;
+    border-radius: 30px;
+    border: 2px solid #b8b8b8;
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.1),
+                0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.wii-pill-slot::after {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    background: #e2e2e2;
+    border-radius: 24px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.wii-pill-slot > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Botones redondos (LID, MediaPipe, Ajustes): un poco más altos que la ranura, como en el menú Wii. */
+.dock-round-button {
+    flex-shrink: 0;
+    width: 5rem;
+    height: 5rem;
     padding: 0;
-    border: 0;
-    border-radius: 9999px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
-.fondo-spot:hover {
-    transform: translate(-50%, 50%) scale(1.05);
-}
+@media (max-width: 640px) {
+    .wii-bottom-dock {
+        padding: 0 1rem;
+        gap: 0.5rem;
+    }
 
-.fondo-spot:active {
-    transform: translate(-50%, 50%) scale(0.95);
-}
+    .wii-pill-slot {
+        min-width: 0;
+        height: 50px;
+        padding: 0 0.4rem;
+        gap: 0.4rem;
+    }
 
-/* Botones redondos estilo Wii que van dentro de los huecos de la barra (LID a la izquierda, sobre a la derecha). */
-.fondo-round-button {
-    background: linear-gradient(to bottom, #ffffff, #e5e7eb);
-    border: calc(5 * var(--fondo-px)) solid #60a5fa;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.9);
-    color: #2563eb;
-}
+    .dock-round-button {
+        width: 3.75rem;
+        height: 3.75rem;
+        border-width: 3px;
+    }
 
-.fondo-round-button:hover,
-.fondo-round-button:focus-visible {
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.5), 0 0 18px rgba(56, 189, 248, 0.6);
-    outline: none;
-}
-
-.fondo-round-button span {
-    font-weight: 800;
-    font-size: calc(38 * var(--fondo-px));
-    letter-spacing: -0.03em;
-}
-
-.fondo-round-button svg {
-    width: 45%;
-    height: 45%;
-}
-
-.fondo-date {
-    color: #8b9099;
-    font-weight: 800;
-    font-size: clamp(0.75rem, calc(30 * var(--fondo-px)), 2rem);
-    white-space: nowrap;
-    pointer-events: none;
-}
-
-.settings-footer-button {
-    background: url("assets/boton-configuracion.png") center / contain no-repeat;
-}
-
-.settings-footer-button:hover {
-    filter: brightness(1.08) drop-shadow(0 0 8px rgba(56, 189, 248, 0.6));
-}
-
-.camera-footer-button {
-    background: linear-gradient(to bottom, #d1fae5, #ffffff);
-    border: calc(5 * var(--fondo-px)) solid #34d399;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.camera-footer-button span {
-    max-width: 80%;
-    color: #059669;
-    font-weight: 800;
-    font-size: calc(16 * var(--fondo-px));
-    line-height: 1.05;
-    text-align: center;
+    #messageBoardButton > div {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
 }
 
 /* Sin archivo la ventana llena el espacio entre el encabezado y el pie.
