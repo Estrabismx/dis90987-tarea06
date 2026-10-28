@@ -21,8 +21,6 @@ body {
     box-sizing: border-box;
 }
 
-/* El cursor del sistema solo se oculta si el JS cargó (clase custom-cursor) y el dispositivo usa mouse.
-   En celulares y tablets se mantiene el comportamiento normal. */
 @media (hover: hover) and (pointer: fine) {
     body.custom-cursor,
     body.custom-cursor * {
@@ -44,14 +42,13 @@ body {
     pointer-events: none;
 }
 
-/* Custom LID Hand Cursor with pointer-events explicitly none */
 .lid-cursor {
     display: none;
     pointer-events: none !important;
     position: fixed;
     width: 48px;
     height: 48px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6' stroke='%23ffffff' stroke-width='1.5'%3E%3Cpath d='M5.5 3.5L18.5 12L12 14L15.5 20.5L13.5 21.5L10 15L5.5 18.5V3.5Z'/%3E%3C/svg%3E");
+    background-image: url("assets/475059460717368585-Photoroom.png");
     background-repeat: no-repeat;
     background-size: contain;
     z-index: 99999;
@@ -62,11 +59,57 @@ body {
 
 body.camera-mode-active .lid-cursor {
     display: block;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6' stroke='%23ffffff' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.5 11V6.75a1.5 1.5 0 0 1 3 0V11V5.75a1.5 1.5 0 0 1 3 0v5.25V10a1.5 1.5 0 0 1 3 0v4.7c0 4.1-2.8 6.8-6.9 6.8h-.9c-2.3 0-4.1-.9-5.5-2.6l-2.7-3.3a1.7 1.7 0 0 1 2.5-2.3L7.5 15v-4Z'/%3E%3C/svg%3E");
+    background-image: url("assets/Gemini_Generated_Image_yk8vfayk8vfayk8v-Photoroom.jpg");
 }
 
-/* Sin archivo la ventana llena el espacio entre el encabezado y el pie.
-   Con imagen o espectrograma se encoge alrededor de ella (el tamaño lo calcula main.js). */
+/* BOTÓN WII REAL: Contenedor limpio que evita deformaciones de la imagen */
+.wii-pill-btn {
+    position: relative;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer;
+    width: 100%;
+    height: 48px;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.wii-pill-btn img.btn-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
+}
+
+.wii-pill-btn span, .wii-pill-btn div {
+    position: relative;
+    z-index: 2;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.wii-pill-btn:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: scale(1.02);
+}
+
+.wii-pill-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.wii-pill-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.3);
+}
+
 .scanner-app-view {
     min-height: 0;
 }
@@ -76,7 +119,6 @@ body.camera-mode-active .lid-cursor {
     align-self: center;
 }
 
-/* El texto del título se acomoda al ancho de la ventana en vez de estirarla. */
 .scanner-title-bar {
     width: 0;
     min-width: 100%;
@@ -84,7 +126,7 @@ body.camera-mode-active .lid-cursor {
 
 .scanner-workspace {
     display: grid;
-    grid-template-columns: 13rem minmax(0, 1fr);
+    grid-template-columns: 14rem minmax(0, 1fr);
     gap: 1rem;
     min-height: 0;
     flex: 1;
@@ -140,7 +182,6 @@ body.camera-mode-active .lid-cursor {
     min-height: 0;
 }
 
-/* Sin archivo el recuadro ocupa todo el espacio; con imagen o espectrograma se ajusta a su tamaño. */
 .canvas-container.has-media {
     width: fit-content;
     max-width: 100%;
@@ -202,87 +243,6 @@ body.camera-mode-active .lid-cursor {
     }
 }
 
-/* Pantallas bajas (por ejemplo notebooks de 1366x768): todo se compacta para que quepa sin scroll. */
-@media (max-height: 760px) and (min-width: 641px) {
-    #appHeader {
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-    }
-
-    #appFooter {
-        height: 5rem;
-    }
-
-    #footerHomeButton,
-    .footer-controls > button {
-        width: 3.75rem;
-        height: 3.75rem;
-    }
-
-    #scannerAppView {
-        padding: 0.75rem;
-    }
-
-    #scannerTitleBar {
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.5rem;
-    }
-
-    .scanner-controls {
-        gap: 0.5rem;
-    }
-
-    #mediaUploadZone {
-        padding-top: 0.25rem;
-        padding-bottom: 0.25rem;
-    }
-
-    .scanner-playback-controls {
-        flex-direction: row;
-    }
-
-    .scanner-playback-controls > button {
-        flex: 1;
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-    }
-}
-
-@media (max-width: 400px) {
-    .footer-bar {
-        align-items: flex-end;
-        padding-bottom: 0.5rem;
-    }
-
-    #footerHomeButton,
-    .footer-controls > button {
-        width: 3rem;
-        height: 3rem;
-    }
-
-    #messageBoardButton {
-        bottom: 0.65rem;
-    }
-
-    #messageBoardButton > div {
-        max-width: 8.5rem;
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-
-    #dateDisplay {
-        max-width: 5.75rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .footer-bar .footer-controls {
-        gap: 1.5rem;
-    }
-}
-
-/* Resizable and Movable Settings Window */
 .settings-modal {
     pointer-events: none;
 }
