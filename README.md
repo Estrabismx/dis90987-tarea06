@@ -38,3 +38,10 @@ A nivel gráfico, la interfaz adopta una tipografía limpia (Inter), una paleta 
 
 en el mundo digital tanto el sonido como las imágenes tienen la misma materia orima que es el bit como se organiza varia por lo mismo si esta hecho de lo mismo partícula inicial misma expresión
 que en la materia física es el átomo en la computación es elo bit por ende como se interpreta esto es como se moldea la realidad 
+
+## **Video de la Web en funcionamieto**
+
+
+| Video del proyecto |
+|---|
+| [![Ver video en YouTube](https://img.youtube.com/vi/DgT-glhhPsQ/hqdefault.jpg)](https://youtube.com/shorts/DgT-glhhPsQ?feature=share) |
